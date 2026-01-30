@@ -1,0 +1,27 @@
+{
+  "dependencies": {
+    "axios": "1.13.4",
+    "body-parser": "2.2.2",
+    "cookie-parser": "1.4.7",
+    "cors": "2.8.6",
+    "dotenv": "17.2.3",
+    "express": "5.2.1",
+    "express-rate-limit": "8.2.1",
+    "firebase": "12.8.0",
+    "firebase-admin": "13.6.0",
+    "mongodb": "7.0.0",
+    "mongoose": "9.1.5",
+    "nodemailer": "7.0.13",
+    "openai": "6.17.0"
+  },
+  "name": "deepdev-own-page-back-end",
+  "version": "1.0.0",
+  "description": "Own Web",
+  "main": "index.js",
+  "start": "node --watch index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "DeepDev-Argentina",
+  "license": "ISC"
+}
