@@ -4,6 +4,7 @@ const cors = require("cors")
 const { urlencoded } = require("body-parser")
 const cookieParser = require("cookie-parser")
 const dbConnection = require("./config/mongoose")
+const authRouter = require("./routes/authRouter")
 const app = express()
 const PORT = process.env.PORT
 
@@ -18,9 +19,7 @@ app.use(cors({
     credentials: true
 }))
 
-app.use("/home", (req,res) => {
-    res.send(`<h1>Welcome Home!</h1>`)
-})
+app.use(authRouter)
 
 app.use((req,res) => {
     res.send(`<h1>404 - Not Found</h1>`)

@@ -7,7 +7,162 @@ const auth = require("../config/firebase")
 const Audit = require("../models/AuditSchema")
 const Contact = require("../models/ContactSchema")
 // Middlewares
+const loginLimiter = require("../middleware/rateLimitMiddleware")
+const checkBanned = require("../middleware/checkBanned")
+const verifyToken = require("../middleware/authMiddleware")
+const { EventEmitterAsyncResource } = require("nodemailer/lib/xoauth2")
 
+authRouter.post("/register", async (req, res) => {
+    const { email, password } = req.body
+    try {
+        if(!email || !password){
+            res.status(400).json({ message: "All fields are required to create an user! 🔴" })
+        }
+        await auth.createUser({ email, password })
+        res.status(201).send({ message: `User created successfully! 🟢` })
+    } catch (error) {
+        console.error(`Error creating user! 🔴 ${error}`);
+        res.status(500).send({ message: `Error creating user! 🔴` })
+    }
+})
 
+authRouter.post("/login", loginLimiter, async (req, res) => {
+    const { idToken } = req.body
+    try {
+        const decoded = await auth.verifyIdToken(idToken)
+        
+        // Primero chequeo que no este baneado, si no lo esta, le reseteo las custom claims
+        if(!decoded.banned){
+            await Audit.findOneAndUpdate(
+                { email: decoded.email, event: "login_failed" },
+                { $set: { attempts: 0, lastAttemptAt: null } }
+            )
+        }
+        // Aurito el login exitoso
+        await Audit.create({
+            uid: decoded.uid,
+            email: decoded.email,
+            event: "login",
+            ip: req.ip,
+            userAgent: req.headers["user-agent"],
+            attempts: decoded.attempts
+        })
+        // Devuelvo la Cookie
+        res.cookie("idToken", idToken, {
+            httpOnly: true,
+            sameSite: "lax",
+            secure: false
+        })
+
+        return res.status(200).json({ message: "Login Audited! 🟢" })
+    } catch (error) {
+        console.error(error);
+        return res.status(401).json({ message: "Invalid token 🔴" });
+    }
+})
+
+authRouter.post("/logout", async (req, res) => {
+    const { idToken } = req.body
+    try {
+        if(idToken){
+            const decoded = await auth.verifyIdToken(idToken)
+            // Audito el logout
+            await Audit.create({
+                uid: decoded.uid,
+                email: decoded.email,
+                event: "logout",
+                ip: req.ip,
+                userAgent: req.headers["user-agent"]
+            })
+        }
+        // Limpio Cookie
+        res.clearCookie("idToken", {
+            httpOnly: true,
+            sameSite: "lax",
+            secure: false
+        })
+
+        return res.status(200).json({ message: "Logout audited! 🟢" })
+    } catch (error) {
+        console.error(error);
+        return res.status(200).json({ message: "Logout fallback! 🟡" });
+        // Devuelvo 200 opr UX para no confundir al front y borrar token cuando no se deslogueo bien
+    }
+})
+
+authRouter.post("/login-failed", async (req, res) => {
+    const { email } = req.body
+    if(!email){
+            return res.status(400).json({ message: "Email is required to audit failed login! 🔴" })
+        }
+    try {
+        const now = Date.now()
+        const attempt = await Audit.findOneAndUpdate(
+            { email, event: "login-failed" },
+            {
+                $inc: { attempts: 1 },
+                $set: { lastAttemptAt: now }
+            },
+            { upsert: true, new: true } // Esto si no existe lo creó aca
+        )
+        if(attempt.attempts >= 5){
+            const user = await auth.getUserByEmail(email)
+
+            await auth.setCustomUserClaims(user.uid, {
+                banned: true,
+                bannedAt: now,
+                bannedReason: "Too many failed login attempts"
+            })
+            await auth.revokeRefreshTokens(user.uid) // Borro todos sus tokens existentes
+            return res.status(200).json({ message: "User banned due to too many failed attempts! 🔴", banned: true })
+        }
+        return res.status(200).json({ message: "Failed login attempt recorded! 🟡", attempts: attempt.attempts })
+    } catch (error) {
+        console.error("Login failed audit error:", error);
+        return res.status(500).json({ message: "Error auditing failed login! 🔴" });  
+    }
+})
+
+authRouter.post("unban-user", async (req, res) => {
+    const { uid } = req.body
+    if(!uid){
+            return res.status(400).json({ message: "User UID is required! 🔴" })
+        }
+    try {
+        const user = await auth.getUser(uid)
+        await auth.setCustomUserClaims(uid, { banned: false })
+
+        await auth.revokeRefreshTokens(uid)
+
+        // Reseteo attempts
+        await Audit.findOneAndUpdate(
+            { uid, event: "login_failed" },
+            { $set: { attempts: 0, lastAttemptAt: null } }
+        )
+        // Audito el unban
+        await AuthAuditSchema.create({
+            uid,
+            email: user.email,
+            event: "forced_logout",
+            metadata: {
+                action: "unban",
+                by: req.user.uid
+            }
+            });
+        return res.status(200).json({ message: "User unbanned successfully! 🟢"});
+
+    } catch (error) {
+        console.error("Unban error:", error);
+        return res.status(500).json({ message: "Error unbanning user" });
+    }
+})
+
+authRouter.get("/me", verifyToken, checkBanned, (req, res) => {
+  res.status(200).json({
+    uid: req.user.uid,
+    email: req.user.email,
+    role: req.user.admin ? "admin" : "user"
+  });
+});
 
 module.exports = authRouter
