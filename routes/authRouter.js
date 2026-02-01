@@ -14,13 +14,25 @@ const { EventEmitterAsyncResource } = require("nodemailer/lib/xoauth2")
 
 authRouter.post("/register", async (req, res) => {
     const { email, password } = req.body
+    const regex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{10,}$/;
     try {
         if(!email || !password){
-            res.status(400).json({ message: "All fields are required to create an user! 🔴" })
+            return res.status(400).json({ message: "All fields are required to create an user! 🔴" })
         }
+
+        if (!regex.test(password)) {
+            return res.status(400).json({ message: "Password does not meet security requirements! 🔴" });
+        }
+
         await auth.createUser({ email, password })
-        res.status(201).send({ message: `User created successfully! 🟢` })
+        
+        return res.status(201).send({ message: `User created successfully! 🟢` })
     } catch (error) {
+        if (error.code === 'auth/email-already-exists') {
+            return res.status(409).json({ 
+                message: "This email is already registered! 🔴" 
+            });
+        }
         console.error(`Error creating user! 🔴 ${error}`);
         res.status(500).send({ message: `Error creating user! 🔴` })
     }
