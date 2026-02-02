@@ -10,6 +10,7 @@ const PORT = process.env.PORT
 
 app.use(urlencoded({ extended: true }))
 app.use(express.json())
+app.use(cookieParser())
 
 dbConnection()
 

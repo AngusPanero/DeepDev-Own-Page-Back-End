@@ -46,7 +46,7 @@ authRouter.post("/login", loginLimiter, async (req, res) => {
         // Primero chequeo que no este baneado, si no lo esta, le reseteo las custom claims
         if(!decoded.banned){
             await Audit.findOneAndUpdate(
-                { email: decoded.email, event: "login_failed" },
+                { email: decoded.email, event: "login-failed" },
                 { $set: { attempts: 0, lastAttemptAt: null } }
             )
         }
@@ -135,7 +135,7 @@ authRouter.post("/login-failed", async (req, res) => {
     }
 })
 
-authRouter.post("unban-user", async (req, res) => {
+authRouter.post("/unban-user", async (req, res) => {
     const { uid } = req.body
     if(!uid){
             return res.status(400).json({ message: "User UID is required! 🔴" })
@@ -148,17 +148,17 @@ authRouter.post("unban-user", async (req, res) => {
 
         // Reseteo attempts
         await Audit.findOneAndUpdate(
-            { uid, event: "login_failed" },
+            { uid, event: "login-failed" },
             { $set: { attempts: 0, lastAttemptAt: null } }
         )
         // Audito el unban
-        await AuthAuditSchema.create({
+        await Audit.create({
             uid,
             email: user.email,
             event: "forced_logout",
             metadata: {
                 action: "unban",
-                by: req.user.uid
+                by: "admin"
             }
             });
         return res.status(200).json({ message: "User unbanned successfully! 🟢"});

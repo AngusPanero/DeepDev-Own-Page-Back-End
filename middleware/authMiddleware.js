@@ -1,9 +1,9 @@
-const admin = require("../config/firebase")
+const auth = require("../config/firebase")
 
 const verifyToken = async (req, res, next) => {
     try {
         const token = 
-        req.cookie?.idToken || // NAVEGADOR
+        req.cookies?.idToken || // NAVEGADOR
         req.headers.authorization?.split(" ")[1]; // POSTMAN
 
         if(!token){
@@ -13,6 +13,7 @@ const verifyToken = async (req, res, next) => {
         const decoded = await auth.verifyIdToken(token)
         req.user = decoded // Le doy al user las custom claims verificadas
 
+        next()
     } catch (error) {
         console.error("Unauthorized 🔴", error);
         return res.status(401).json({ message: "Unauthorized" });
