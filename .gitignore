@@ -44,3 +44,6 @@ __pycache__/
 *$py.class
 venv/
 .venv/
+
+# --- Make Admin ---
+makeAdmin.js

@@ -55,8 +55,7 @@ const ContactSchema = new mongoose.Schema({
     },
     currentUrl: {
         type: String,
-        required: false,
-        minlength: 3,      
+        required: false,   
         maxlength: 50,
     },
     description: {

@@ -5,7 +5,6 @@ const authRouter = express.Router()
 const auth = require("../config/firebase")
 // Models
 const Audit = require("../models/AuditSchema")
-const Contact = require("../models/ContactSchema")
 // Middlewares
 const loginLimiter = require("../middleware/rateLimitMiddleware")
 const checkBanned = require("../middleware/checkBanned")
@@ -170,11 +169,7 @@ authRouter.post("/unban-user", async (req, res) => {
 })
 
 authRouter.get("/me", verifyToken, checkBanned, (req, res) => {
-  res.status(200).json({
-    uid: req.user.uid,
-    email: req.user.email,
-    role: req.user.admin ? "admin" : "user"
-  });
+  res.status(200).json({ uid: req.user.uid, email: req.user.email, role: req.user.admin ? "admin" : "user"});
 });
 
 module.exports = authRouter
