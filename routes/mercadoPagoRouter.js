@@ -6,7 +6,6 @@ const { MercadoPagoConfig, Payment } =require("mercadopago")
 const { v4 } = require("uuid")
 // Mongo
 const PaymentsMongo = require("../models/Payments")
-const { log } = require("firebase/firestore/pipelines")
 
 const client = new MercadoPagoConfig({ 
     accessToken: process.env.MP_ACCESS_TOKEN 
@@ -15,7 +14,7 @@ const client = new MercadoPagoConfig({
 const paymentInstance = new Payment(client);
 
 mercadoPagoRouter.post("/mercado-pago-payments", async (req, res) => {
-    const { token, issuer_id, payment_method_id, transaction_amount, installments, payer, idempotencyKey } = req.body;
+    const { token, issuer_id, payment_method_id, transaction_amount, installments, payer, idempotencyKey, plan } = req.body;
     console.log(req.body);
     
     try {
@@ -76,14 +75,12 @@ mercadoPagoRouter.post("/mercado-pago-payments", async (req, res) => {
         // Lo guardo si no esta duplicado
         const nuevoPago = new PaymentsMongo({
             orderId: idempotencyKey,
-            mpId: result.id,
-            amount: Number(transaction_amount),
-            status: result.status,
-            statusDetail: result.status_detail,
+            client_id: payer.id_internal, 
             email: payer.email,
-            clientId: payer.id_internal,
-            installments: installments,
-            paymentMethod: payment_method_id,
+            plan: plan,          
+            amount: Number(transaction_amount),
+            mp_payment_id: result.id,     
+            status: result.status,
             date: new Date()
         });
 

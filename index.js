@@ -8,6 +8,8 @@ const authRouter = require("./routes/authRouter")
 const contactRouter = require("./routes/contactRouter")
 const mailRouter = require("./nodemailer/nodemailer")
 const mercadoPagoRouter = require("./routes/mercadoPagoRouter")
+const raffleRouter = require("./routes/raffleRouter")
+const paymentsRouter = require("./routes/paymentRoutes")
 const app = express()
 const PORT = process.env.PORT
 
@@ -27,6 +29,8 @@ app.use(authRouter)
 app.use(contactRouter)
 app.use(mailRouter)
 app.use(mercadoPagoRouter)
+app.use(raffleRouter)
+app.use(paymentsRouter)
 
 app.use((req,res) => {
     res.send(`<h1>404 - Not Found</h1>`)
