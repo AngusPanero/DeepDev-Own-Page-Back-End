@@ -15,7 +15,6 @@ const paymentInstance = new Payment(client);
 
 mercadoPagoRouter.post("/mercado-pago-payments", async (req, res) => {
     const { token, issuer_id, payment_method_id, transaction_amount, installments, payer, idempotencyKey, plan } = req.body;
-    console.log(req.body);
     
     try {
         // Cheque que no se cobre el mismo pago

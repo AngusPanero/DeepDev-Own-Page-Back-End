@@ -5,7 +5,6 @@ const raffleRouter = express.Router()
 const Raffle = require("../models/RaffleSchema")
 
 raffleRouter.post("/raffle", async (req, res) => {
-    console.log(req.body)
     const { fullName, email, phone, description } = req.body
     try {
         if(!fullName || !email || !phone || !description) {

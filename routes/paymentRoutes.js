@@ -6,7 +6,7 @@ const PaymentsMongo = require("../models/Payments")
 
 paymentsRouter.post("/tickets", async (req, res) => {
     const { email } = req.body
-    console.log(req.body);
+    console.log(req.body)
     
     if(!email){
         return res.status(400).json({ message: "All fields are required! 🔴" })
@@ -24,7 +24,7 @@ paymentsRouter.post("/tickets", async (req, res) => {
 })
 
 // Test
-paymentsRouter.post("/test-payment", async (req, res) => {
+/* paymentsRouter.post("/test-payment", async (req, res) => {
     const { token, issuer_id, payment_method_id, transaction_amount, installments, payer, idempotencyKey } = req.body;
 
     const nuevoPago = new PaymentsMongo({
@@ -37,18 +37,8 @@ paymentsRouter.post("/test-payment", async (req, res) => {
             status: result.status,
             date: new Date()
     });
-    /* const nuevoPago = new PaymentsMongo({
-            orderId: "idempotencyKey",
-            client_id: "payer.id_internal", 
-            email: "payer.email",
-            plan: "Landing Pro",          
-            amount: 23455,
-            mp_payment_id: "result.id",     
-            status: "approved",
-            date: new Date()
-    }); */
     await nuevoPago.save();
     res.status(200).json({ message: "Payment Hecho" })
-})
+}) */
 
 module.exports = paymentsRouter
