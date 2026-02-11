@@ -20,7 +20,7 @@ app.use(cookieParser())
 dbConnection()
 
 app.use(cors({
-    origin: [ "https://deepdev-own-page.onrender.com", "http://localhost:5173" ],
+    origin: [ "http://localhost:5173" ],
     methods: [ "GET", "POST", "PUT", "DELETE" ],
     credentials: true
 }))
