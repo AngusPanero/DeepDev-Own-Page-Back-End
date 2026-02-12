@@ -17,66 +17,55 @@ mercadoPagoRouter.post("/mercado-pago-payments", async (req, res) => {
     const { token, issuer_id, payment_method_id, transaction_amount, installments, payer, idempotencyKey, plan } = req.body;
     
     try {
-        // Cheque que no se cobre el mismo pago
         const pagoPrevio = await PaymentsMongo.findOne({ orderId: idempotencyKey });
 
         if (pagoPrevio) {
-            console.log("Reintento detectado: La orden ya existe en nuestra DB.");
             return res.status(200).json({ 
                 status: pagoPrevio.status, 
-                status_detail: pagoPrevio.statusDetail, 
-                id: pagoPrevio.mpId,
+                id: pagoPrevio.mp_payment_id, // Usando el nombre correcto de tu esquema
                 message: "Esta transacción ya fue procesada anteriormente."
             });
         }
-        // Data cobro
-        const paymentData = {
-            body: {
-                token,
-                issuer_id,
-                payment_method_id,
-                transaction_amount: Number(transaction_amount),
-                installments: Number(installments),
-                description: "DeepDev Studio - Servicio Digital",
-                payer: {
-                    email: payer.email,
-                    identification: {
-                        type: payer.identification.type,
-                        number: payer.identification.number
-                    }
-                },
-                metadata: {
-                    order_id: idempotencyKey,
-                    client_id: payer.id_internal 
+
+        // Construimos el cuerpo del pago
+        const body = {
+            token,
+            payment_method_id,
+            transaction_amount: Number(transaction_amount),
+            installments: Number(installments),
+            description: "DeepDev Studio - Servicio Digital",
+            payer: {
+                email: payer.email,
+                identification: {
+                    type: payer.identification.type,
+                    number: payer.identification.number
                 }
             },
-            requestOptions: { idempotencyKey }
+            metadata: {
+                order_id: idempotencyKey,
+                client_id: payer.id_internal 
+            }
         };
-        const result = await paymentInstance.create(paymentData);
-        console.log("Resultado de Mercado Pago:", result);  
-        //Mongo Cheque duplicado
-        const pagoExistente = await PaymentsMongo.findOne({ 
-            $or: [
-                { orderId: idempotencyKey },
-                { mpId: result.id }
-            ]
-        });
 
-        if (pagoExistente) {
-            console.log("Pago ya registrado anteriormente, omitiendo duplicado en DB.");
-            return res.status(200).json({ 
-                status: pagoExistente.status, 
-                status_detail: pagoExistente.statusDetail, 
-                id: pagoExistente.mpId 
-            });
+        // IMPORTANTE: Solo agregamos el issuer_id si realmente existe y no es "null"
+        if (issuer_id && issuer_id !== "null" && issuer_id !== null) {
+            body.issuer_id = String(issuer_id);
         }
 
-        // Lo guardo si no esta duplicado
+        const paymentData = {
+            body,
+            requestOptions: { idempotencyKey }
+        };
+
+        const result = await paymentInstance.create(paymentData);
+        console.log("Resultado de Mercado Pago:", result);  
+
+        // Guardar en Mongo (Asegúrate de que los nombres de los campos coincidan con tu Schema)
         const nuevoPago = new PaymentsMongo({
             orderId: idempotencyKey,
             client_id: payer.id_internal, 
             email: payer.email,
-            plan: plan,          
+            plan: plan || "Servicio Digital",          
             amount: Number(transaction_amount),
             mp_payment_id: result.id,     
             status: result.status,
@@ -85,14 +74,21 @@ mercadoPagoRouter.post("/mercado-pago-payments", async (req, res) => {
 
         await nuevoPago.save();
 
-        // Devolvemos la respuesta detallada
-        res.status(201).json({ status: result.status, status_detail: result.status_detail, id: result.id });
+        res.status(201).json({ 
+            status: result.status, 
+            status_detail: result.status_detail, 
+            id: result.id 
+        });
 
     } catch (error) {
         console.error("Error processing Mercado Pago payment! 🔴", error);
-        res.status(500).json({ error: error.message, details: error.cause || "Internal Server Error" });
+        // Si MP devuelve un error, lo enviamos con detalle para debugear
+        res.status(500).json({ 
+            error: error.message || "Internal Server Error", 
+            details: error.cause || error.response?.data || "No details provided" 
+        });
     }
-}); 
+});
 
 // RUTA PARA RECIBIR NOTIFICACIONES DE MERCADO PAGO
 mercadoPagoRouter.post("/webhooks", async (req, res) => {

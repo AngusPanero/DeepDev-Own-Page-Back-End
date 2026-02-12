@@ -6,6 +6,7 @@ const mailRouter = express.Router()
 
 // Contact
 mailRouter.post("/send-email", async (req, res) => {
+    console.log("Datos recibidos para email:", req.body);
     const { name, lastName, companyName, contactRole, email, phone, projectOption, typeOfWork, currentUrl, description, projectGoal, budgetRange, availableTime } = req.body
     
     if(!name || !lastName || !companyName || !contactRole || !email || !phone || !projectOption || !typeOfWork || !description || !projectGoal || !budgetRange || !availableTime){
@@ -25,81 +26,81 @@ mailRouter.post("/send-email", async (req, res) => {
         to: process.env.EMAIL_TO, // A dónde querés que llegue el Mail
         subject: `Nueva Consulta De Proyecto.`,
         html: `<!DOCTYPE html>
-<html>
-<head>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
-</head>
-<body style="margin: 0; padding: 0; font-family: 'Montserrat', sans-serif; background-color: #020617; color: #ffffff;">
-    <div class="wrapper" style="width: 100%; padding: 40px 0; display: flex; justify-content: center; ">
-        <div class="purchase-card" style="width: 500px; margin: 0 auto;  border-radius: 12px; overflow: hidden; box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6); border: 2px solid rgba(142, 45, 226, 0.4);">
-            
-            <div class="mac-header" style="background: rgba(255, 255, 255, 0.03); padding: 12px 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
-                <table cellpadding="0" cellspacing="0" border="0" style="width: 100%;">
-                    <tr>
-                        <td style="width: 60px;">
-                            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #ff5f56; margin-right: 4px;"></span>
-                            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #ffbd2e; margin-right: 4px;"></span>
-                            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #27c93f;"></span>
-                        </td>
-                        <td style="font-family: 'Courier New', Courier, monospace; font-size: 11px; color: #94a3b8; text-align: left; padding-left: 10px;">
-                            incoming_request.json
-                        </td>
-                    </tr>
-                </table>
-            </div>
+                <html>
+                <head>
+                    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
+                </head>
+                <body style="margin: 0; padding: 0; font-family: 'Montserrat', sans-serif; background-color: #020617; color: #ffffff;">
+                    <div class="wrapper" style="width: 100%; padding: 40px 0; display: flex; justify-content: center; ">
+                        <div class="purchase-card" style="width: 500px; margin: 0 auto;  border-radius: 12px; overflow: hidden; box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6); border: 2px solid rgba(142, 45, 226, 0.4);">
+                            
+                            <div class="mac-header" style="background: rgba(255, 255, 255, 0.03); padding: 12px 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                                <table cellpadding="0" cellspacing="0" border="0" style="width: 100%;">
+                                    <tr>
+                                        <td style="width: 60px;">
+                                            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #ff5f56; margin-right: 4px;"></span>
+                                            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #ffbd2e; margin-right: 4px;"></span>
+                                            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #27c93f;"></span>
+                                        </td>
+                                        <td style="font-family: 'Courier New', Courier, monospace; font-size: 11px; color: #94a3b8; text-align: left; padding-left: 10px;">
+                                            incoming_request.json
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
 
-            <div class="content" style="padding: 30px;">
-                <div class="status-badge" style="display: inline-block; background: rgba(142, 45, 226, 0.1); color: #c084fc; padding: 4px 10px; border: 1px solid rgba(142, 45, 226, 0.3); border-radius: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; margin-bottom: 15px;">
-                    Nuevo Ticket de Proyecto
-                </div>
-                
-                <h1 class="title" style="font-size: 22px; font-weight: 800; margin: 0 0 20px 0; letter-spacing: -0.5px; color: #ffffff;">
-                    Detalles de la Consulta
-                </h1>
-                
-                <table class="receipt-table" style="width: 100%; border-collapse: collapse; margin-bottom: 25px;">
-                    <tr>
-                        <td style="padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); color: #cdb6ffff; font-family: 'Courier New', monospace; font-size: 18px; text-transform: uppercase; font-weight: 600;">Cliente:</td>
-                        <td style="padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); text-align: right; color: #f1f5f9; font-size: 18px; font-weight: 500;">${name} ${lastName}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); color: #cdb6ffff; font-family: 'Courier New', monospace; font-size: 18px; text-transform: uppercase; font-weight: 600;">Empresa:</td>
-                        <td style="padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); text-align: right; color: #f1f5f9; font-size: 18px; font-weight: 500;">${companyName} <span style="color: #94a3b8; font-size: 18px;">(${contactRole})</span></td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); color: #cdb6ffff; font-family: 'Courier New', monospace; font-size: 18px; text-transform: uppercase; font-weight: 600;">Email:</td>
-                        <td style="padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); text-align: right; color: #38bdf8; font-size: 18px; font-weight: 500;">${email}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); color: #cdb6ffff; font-family: 'Courier New', monospace; font-size: 18px; text-transform: uppercase; font-weight: 600;">Presupuesto:</td>
-                        <td style="padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); text-align: right; color: #4ade80; font-size: 18px; font-weight: 700;">${budgetRange}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); color: #cdb6ffff; font-family: 'Courier New', monospace; font-size: 18px; text-transform: uppercase; font-weight: 600;">Timeline:</td>
-                        <td style="padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); text-align: right; color: #f1f5f9; font-size: 18px; font-weight: 500;">${availableTime}</td>
-                    </tr>
-                </table>
+                            <div class="content" style="padding: 30px;">
+                                <div class="status-badge" style="display: inline-block; background: rgba(142, 45, 226, 0.1); color: #c084fc; padding: 4px 10px; border: 1px solid rgba(142, 45, 226, 0.3); border-radius: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; margin-bottom: 15px;">
+                                    Nuevo Ticket de Proyecto
+                                </div>
+                                
+                                <h1 class="title" style="font-size: 22px; font-weight: 800; margin: 0 0 20px 0; letter-spacing: -0.5px; color: #ffffff;">
+                                    Detalles de la Consulta
+                                </h1>
+                                
+                                <table class="receipt-table" style="width: 100%; border-collapse: collapse; margin-bottom: 25px;">
+                                    <tr>
+                                        <td style="padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); color: #cdb6ffff; font-family: 'Courier New', monospace; font-size: 18px; text-transform: uppercase; font-weight: 600;">Cliente:</td>
+                                        <td style="padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); text-align: right; color: #f1f5f9; font-size: 18px; font-weight: 500;">${name} ${lastName}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); color: #cdb6ffff; font-family: 'Courier New', monospace; font-size: 18px; text-transform: uppercase; font-weight: 600;">Empresa:</td>
+                                        <td style="padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); text-align: right; color: #f1f5f9; font-size: 18px; font-weight: 500;">${companyName} <span style="color: #94a3b8; font-size: 18px;">(${contactRole})</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); color: #cdb6ffff; font-family: 'Courier New', monospace; font-size: 18px; text-transform: uppercase; font-weight: 600;">Email:</td>
+                                        <td style="padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); text-align: right; color: #38bdf8; font-size: 18px; font-weight: 500;">${email}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); color: #cdb6ffff; font-family: 'Courier New', monospace; font-size: 18px; text-transform: uppercase; font-weight: 600;">Presupuesto:</td>
+                                        <td style="padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); text-align: right; color: #4ade80; font-size: 18px; font-weight: 700;">${budgetRange}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); color: #cdb6ffff; font-family: 'Courier New', monospace; font-size: 18px; text-transform: uppercase; font-weight: 600;">Timeline:</td>
+                                        <td style="padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); text-align: right; color: #f1f5f9; font-size: 18px; font-weight: 500;">${availableTime}</td>
+                                    </tr>
+                                </table>
 
-                <div style="color: #cdb6ffff; font-family: 'Courier New', monospace; font-size: 10px; text-transform: uppercase; font-weight: 600; margin-bottom: 10px;">Objetivo del Proyecto:</div>
-                <div style="margin-bottom: 25px; font-size: 14px; border-left: 3px solid #8e2de2; padding-left: 15px; color: #cbd5e1; font-style: italic;">
-                    "${projectGoal}"
-                </div>
+                                <div style="color: #cdb6ffff; font-family: 'Courier New', monospace; font-size: 10px; text-transform: uppercase; font-weight: 600; margin-bottom: 10px;">Objetivo del Proyecto:</div>
+                                <div style="margin-bottom: 25px; font-size: 14px; border-left: 3px solid #8e2de2; padding-left: 15px; color: #cbd5e1; font-style: italic;">
+                                    "${projectGoal}"
+                                </div>
 
-                <div style="color: #cdb6ffff; font-family: 'Courier New', monospace; font-size: 10px; text-transform: uppercase; font-weight: 600; margin-bottom: 10px;">Mensaje Adicional:</div>
-                <div class="description-box" style="background: rgba(0, 0, 0, 0.2); padding: 15px; border-radius: 8px; border: 1px dashed rgba(142, 45, 226, 0.5); color: #94a3b8; font-size: 12px; line-height: 1.6;">
-                    ${description}
-                </div>
-            </div>
-            
-            <div class="footer" style="background: rgba(0, 0, 0, 0.2); padding: 20px; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid rgba(255, 255, 255, 0.05); line-height: 1.5;">
-                <strong style="color: #ffffff;">SISTEMA DE CONTACTO DEEPDEV STUDIO</strong><br>
-                Este correo fue generado automáticamente por el portal.<br>
-                © 2026 — Built with precision.
-            </div>
-        </div>
-    </div>
-</body>
-</html>`
+                                <div style="color: #cdb6ffff; font-family: 'Courier New', monospace; font-size: 10px; text-transform: uppercase; font-weight: 600; margin-bottom: 10px;">Mensaje Adicional:</div>
+                                <div class="description-box" style="background: rgba(0, 0, 0, 0.2); padding: 15px; border-radius: 8px; border: 1px dashed rgba(142, 45, 226, 0.5); color: #94a3b8; font-size: 12px; line-height: 1.6;">
+                                    ${description}
+                                </div>
+                            </div>
+                            
+                            <div class="footer" style="background: rgba(0, 0, 0, 0.2); padding: 20px; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid rgba(255, 255, 255, 0.05); line-height: 1.5;">
+                                <strong style="color: #ffffff;">SISTEMA DE CONTACTO DEEPDEV STUDIO</strong><br>
+                                Este correo fue generado automáticamente por el portal.<br>
+                                © 2026 — Built with precision.
+                            </div>
+                        </div>
+                    </div>
+                </body>
+                </html>`
     }
     try {
         await transporter.sendMail(mailOptions)
