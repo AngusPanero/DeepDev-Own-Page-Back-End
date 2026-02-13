@@ -13,8 +13,10 @@ const client = new MercadoPagoConfig({
 
 const paymentInstance = new Payment(client);
 
+const esProduccion = (process.env.NODE_ENV === 'production');
+
 mercadoPagoRouter.post("/mercado-pago-payments", async (req, res) => {
-    const { token, issuer_id, payment_method_id, transaction_amount, installments, payer, idempotencyKey } = req.body;
+    const { token, issuer_id, payment_method_id, transaction_amount, installments, payer, idempotencyKey, plan } = req.body;
 
     try {
         const paymentData = {
@@ -24,7 +26,6 @@ mercadoPagoRouter.post("/mercado-pago-payments", async (req, res) => {
                 description: "DeepDev Studio - Servicio Digital",
                 installments: Number(installments),
                 payment_method_id,
-                // Si issuer_id viene del front lo usamos, sino dejamos que MP lo maneje
                 issuer_id: issuer_id ? String(issuer_id) : undefined,
                 payer: {
                     email: payer.email,
@@ -32,24 +33,30 @@ mercadoPagoRouter.post("/mercado-pago-payments", async (req, res) => {
                 },
             },
             requestOptions: { 
-                // X-Idempotency-Key es obligatorio para evitar cargos dobles
+                
                 idempotencyKey: idempotencyKey 
             }
         };
 
         const result = await paymentInstance.create(paymentData);
 
-        // ... lógica de guardado en Mongo ...
-
-        res.status(201).json({ 
+        const newPayment = new PaymentsMongo({
+            orderId: `ORD-${Date.now()}`, 
+            client_id: payer.id_internal || "guest", 
+            email: payer.email,
+            plan: plan, 
+            amount: Number(transaction_amount),
+            mp_payment_id: String(result.id),
             status: result.status, 
-            status_detail: result.status_detail, 
-            id: result.id 
+            date: new Date()
         });
 
+        await newPayment.save();
+
+        res.status(201).json({ status: result.status, status_detail: result.status_detail, id: result.id });
+
     } catch (error) {
-        // La documentación dice que revises error.response.data para ver por qué falló
-        console.error("Error MP:", error.response?.data || error.message);
+        console.error(esProduccion ? "Error MP" : "Error MP:", error.response?.data || error.message);
         res.status(500).json({ error: "Falla en el proceso de pago" });
     }
 });
@@ -61,16 +68,11 @@ mercadoPagoRouter.post("/webhooks", async (req, res) => {
         const id = query["data.id"] || body?.data?.id || body?.id;
         const type = query.type || body?.type;
 
-        console.log(`--- NOTIFICACIÓN RECIBIDA ---`);
-        console.log(`Tipo: ${type}, ID: ${id}`);
-
         // IMPORTANTE: El ID "123456" es un test de MP y no existe en sus servidores reales
         if (type === "payment" && id && id !== "123456") {
             
             // Aquí es donde fallaba por el Token
             const payment = await paymentInstance.get({ id });
-
-            console.log(`Estado real: ${payment.status}`);
 
             await PaymentsMongo.findOneAndUpdate(
                 { mpId: id.toString() },
@@ -86,7 +88,7 @@ mercadoPagoRouter.post("/webhooks", async (req, res) => {
         res.status(200).send("OK");
     } catch (error) {
         // Si el error es porque el ID no existe (como el 123456), lo manejamos
-        console.error("Error en Webhook 🔴:", error.message);
+        console.error(esProduccion ? "Error en Webhook 🔴" : "Error en Webhook 🔴:", error.message);
         res.status(200).send("OK"); // Mandamos 200 igual para que MP no reintente
     }
 });

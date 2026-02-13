@@ -9,7 +9,8 @@ const Audit = require("../models/AuditSchema")
 const loginLimiter = require("../middleware/rateLimitMiddleware")
 const checkBanned = require("../middleware/checkBanned")
 const verifyToken = require("../middleware/authMiddleware")
-const { EventEmitterAsyncResource } = require("nodemailer/lib/xoauth2")
+
+const esProduccion = (process.env.NODE_ENV === 'production');
 
 authRouter.post("/register", async (req, res) => {
     const { email, password } = req.body
@@ -32,7 +33,7 @@ authRouter.post("/register", async (req, res) => {
                 message: "This email is already registered! 🔴" 
             });
         }
-        console.error(`Error creating user! 🔴 ${error}`);
+        console.error(esProduccion ? `Error creating user! 🔴` : `Error creating user! 🔴 ${error}`);
         res.status(500).send({ message: `Error creating user! 🔴` })
     }
 })
@@ -61,13 +62,14 @@ authRouter.post("/login", loginLimiter, async (req, res) => {
         // Devuelvo la Cookie
         res.cookie("idToken", idToken, {
             httpOnly: true,
-            sameSite: "lax",
-            secure: false
+            sameSite: "strict", // Cambiado de 'lax' a 'strict' para mayor seguridad en auth
+            secure: process.env.NODE_ENV === 'production', // Solo envía por HTTPS en producción
+            maxAge: 60 * 60 * 1000 // Es buena práctica ponerle una duración (ej. 1 hora)
         })
 
         return res.status(200).json({ message: "Login Audited! 🟢" })
     } catch (error) {
-        console.error(error);
+        console.error(esProduccion ? `Invalid token! 🔴` : `Invalid token! 🔴 ${error}`);
         return res.status(401).json({ message: "Invalid token 🔴" });
     }
 })
@@ -89,13 +91,13 @@ authRouter.post("/logout", async (req, res) => {
         // Limpio Cookie
         res.clearCookie("idToken", {
             httpOnly: true,
-            sameSite: "lax",
-            secure: false
+            sameSite: "strict", // Debe coincidir con el valor de res.cookie
+            secure: process.env.NODE_ENV === 'production' // Debe coincidir 
         })
 
         return res.status(200).json({ message: "Logout audited! 🟢" })
     } catch (error) {
-        console.error(error);
+        console.error(esProduccion ? `Logout fallback! 🔴` : `Logout fallback! 🔴 ${error}`);
         return res.status(200).json({ message: "Logout fallback! 🟡" });
         // Devuelvo 200 opr UX para no confundir al front y borrar token cuando no se deslogueo bien
     }
@@ -129,7 +131,7 @@ authRouter.post("/login-failed", async (req, res) => {
         }
         return res.status(200).json({ message: "Failed login attempt recorded! 🟡", attempts: attempt.attempts })
     } catch (error) {
-        console.error("Login failed audit error:", error);
+        console.error(esProduccion ? `Error auditing failed login 🔴` : `Error auditing failed login 🔴 ${error}`);
         return res.status(500).json({ message: "Error auditing failed login! 🔴" });  
     }
 })
@@ -163,8 +165,8 @@ authRouter.post("/unban-user", async (req, res) => {
         return res.status(200).json({ message: "User unbanned successfully! 🟢"});
 
     } catch (error) {
-        console.error("Unban error:", error);
-        return res.status(500).json({ message: "Error unbanning user" });
+        console.error(esProduccion ? `Error unbanning user! 🔴` : `Error unbanning user! 🔴 ${error}`);
+        return res.status(500).json({ message: "Error unbanning user! 🔴" });
     }
 })
 

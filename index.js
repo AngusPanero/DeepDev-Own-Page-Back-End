@@ -13,6 +13,7 @@ const paymentsRouter = require("./routes/paymentRoutes")
 const app = express()
 const PORT = process.env.PORT
 
+app.set('trust proxy', 1); // Para el Rate Limiter
 app.use(urlencoded({ extended: true }))
 app.use(express.json())
 app.use(cookieParser())
@@ -37,5 +38,5 @@ app.use((req,res) => {
 })
 
 app.listen(PORT, "0.0.0.0", (req, res) => {
-    console.log(`Server listening on port http://localhost:${PORT} 🟢`)
+    console.log(`Server listening🟢`)
 })

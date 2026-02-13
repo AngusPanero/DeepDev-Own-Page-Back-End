@@ -1,5 +1,7 @@
 const auth = require("../config/firebase")
 
+const esProduccion = (process.env.NODE_ENV === 'production');
+
 const verifyToken = async (req, res, next) => {
     try {
         const token = 
@@ -15,7 +17,7 @@ const verifyToken = async (req, res, next) => {
 
         next()
     } catch (error) {
-        console.error("Unauthorized 🔴", error);
+        console.error(esProduccion ? `Unauthorized! 🔴`: `Unauthorized! 🔴 ${error}`);
         return res.status(401).json({ message: "Unauthorized" });
     }
 }

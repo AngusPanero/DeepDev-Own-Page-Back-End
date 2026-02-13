@@ -4,9 +4,10 @@ const nodemailer = require("nodemailer")
 
 const mailRouter = express.Router()
 
+const esProduccion = (process.env.NODE_ENV === 'production');
+
 // Contact
 mailRouter.post("/send-email", async (req, res) => {
-    console.log("Datos recibidos para email:", req.body);
     const { name, lastName, companyName, contactRole, email, phone, projectOption, typeOfWork, currentUrl, description, projectGoal, budgetRange, availableTime } = req.body
     
     if(!name || !lastName || !companyName || !contactRole || !email || !phone || !projectOption || !typeOfWork || !description || !projectGoal || !budgetRange || !availableTime){
@@ -106,7 +107,7 @@ mailRouter.post("/send-email", async (req, res) => {
         await transporter.sendMail(mailOptions)
         res.status(200).json({ success: true, message: 'Correo enviado con éxito' })
     } catch (error) {
-        console.error(`Internal error setting up mail transporter! 🔴 ${error}`);
+        console.error(esProduccion ? `Internal error setting up mail transporter! 🔴` : `Internal error setting up mail transporter! 🔴 ${error}`);
         res.status(500).send({ message: `Internal error setting up mail transporter! 🔴 ${error}` })
     }
 })
@@ -304,8 +305,8 @@ mailRouter.post("/ticket-order", async (req, res) => {
         await transporter.sendMail(ticketsMailOptions)
         res.status(200).json({ success: true, message: 'Correo enviado con éxito' })
     } catch (error) {
-        res.status(500).json({ message: "Error creating raffle! 🔴", error: error.message })
-        console.error("Error creating raffle:", error)
+        res.status(500).json({ message: "Error creating ticket! 🔴", error: error.message })
+        console.error(esProduccion ? "Error creating ticket! 🔴" : `Error creating ticket! 🔴 ${error}`);
     }
 })
 

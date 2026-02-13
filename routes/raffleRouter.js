@@ -4,6 +4,8 @@ const raffleRouter = express.Router()
 // Modelo
 const Raffle = require("../models/RaffleSchema")
 
+const esProduccion = (process.env.NODE_ENV === 'production');
+
 raffleRouter.post("/raffle", async (req, res) => {
     const { fullName, email, phone, description } = req.body
     try {
@@ -14,8 +16,8 @@ raffleRouter.post("/raffle", async (req, res) => {
         await raffle.save()
         res.status(201).json({ message: "Raffle created successfully! 🟢" })
     } catch (error) {
-        res.status(500).json({ message: "Error creating raffle! 🔴", error: error.message })
-        console.error("Error creating raffle:", error)
+        console.error(esProduccion ? "Error creating raffle:" : "Error creating raffle:", error)
+        res.status(500).json({ message: "Error creating raffle! 🔴"})
     }
 })
 

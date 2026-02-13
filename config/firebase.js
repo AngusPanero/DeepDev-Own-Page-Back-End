@@ -18,7 +18,7 @@ const userService = {
         admin.initializeApp({
             credential: admin.credential.cert(userService),
         });
-        console.log(`Firebase: ${userService.project_id} connected successfully! 🟢`);
+        console.log(`Firebase: connected successfully! 🟢`);
     }
     
 const auth = admin.auth()

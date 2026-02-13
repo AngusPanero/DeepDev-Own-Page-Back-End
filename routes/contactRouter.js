@@ -6,6 +6,8 @@ const auth = require("../config/firebase")
 // Models
 const Contact = require("../models/ContactSchema")
 
+const esProduccion = (process.env.NODE_ENV === 'production');
+
 contactRouter.post("/contact", async (req, res) => {
     const { name, lastName, companyName, contactRole, email, phone, projectOption, typeOfWork, currentUrl, description, projectGoal, budgetRange, availableTime } = req.body
     
@@ -18,8 +20,8 @@ contactRouter.post("/contact", async (req, res) => {
 
         return res.status(201).json({ message: "Contact form submitted successfully! 🟢" })
     } catch (error) {
-        console.error(`Error creating new contact! 🔴 ${error}`);
-        res.status(500).send({ message: `Error creating new contact! 🔴 ${error}` })
+        console.error(esProduccion ? `Error creating new contact! 🔴` : `Error creating new contact! 🔴 ${error}`);
+        res.status(500).send({ message: `Error creating new contact! 🔴` })
     }
 })
 
