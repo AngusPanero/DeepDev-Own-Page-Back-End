@@ -14,65 +14,32 @@ const client = new MercadoPagoConfig({
 const paymentInstance = new Payment(client);
 
 mercadoPagoRouter.post("/mercado-pago-payments", async (req, res) => {
-    const { token, issuer_id, payment_method_id, transaction_amount, installments, payer, idempotencyKey, plan } = req.body;
-    
+    const { token, issuer_id, payment_method_id, transaction_amount, installments, payer, idempotencyKey } = req.body;
+
     try {
-        const pagoPrevio = await PaymentsMongo.findOne({ orderId: idempotencyKey });
-
-        if (pagoPrevio) {
-            return res.status(200).json({ 
-                status: pagoPrevio.status, 
-                id: pagoPrevio.mp_payment_id, // Usando el nombre correcto de tu esquema
-                message: "Esta transacción ya fue procesada anteriormente."
-            });
-        }
-
-        // Construimos el cuerpo del pago
-        const body = {
-            token,
-            payment_method_id,
-            transaction_amount: Number(transaction_amount),
-            installments: Number(installments),
-            description: "DeepDev Studio - Servicio Digital",
-            payer: {
-                email: payer.email,
-                identification: {
-                    type: payer.identification.type,
-                    number: payer.identification.number
-                }
+        const paymentData = {
+            body: {
+                transaction_amount: Number(transaction_amount),
+                token,
+                description: "DeepDev Studio - Servicio Digital",
+                installments: Number(installments),
+                payment_method_id,
+                // Si issuer_id viene del front lo usamos, sino dejamos que MP lo maneje
+                issuer_id: issuer_id ? String(issuer_id) : undefined,
+                payer: {
+                    email: payer.email,
+                    identification: payer.identification
+                },
             },
-            metadata: {
-                order_id: idempotencyKey,
-                client_id: payer.id_internal 
+            requestOptions: { 
+                // X-Idempotency-Key es obligatorio para evitar cargos dobles
+                idempotencyKey: idempotencyKey 
             }
         };
 
-        // IMPORTANTE: Solo agregamos el issuer_id si realmente existe y no es "null"
-        if (issuer_id && issuer_id !== "null" && issuer_id !== null) {
-            body.issuer_id = String(issuer_id);
-        }
-
-        const paymentData = {
-            body,
-            requestOptions: { idempotencyKey }
-        };
-
         const result = await paymentInstance.create(paymentData);
-        console.log("Resultado de Mercado Pago:", result);  
 
-        // Guardar en Mongo (Asegúrate de que los nombres de los campos coincidan con tu Schema)
-        const nuevoPago = new PaymentsMongo({
-            orderId: idempotencyKey,
-            client_id: payer.id_internal, 
-            email: payer.email,
-            plan: plan || "Servicio Digital",          
-            amount: Number(transaction_amount),
-            mp_payment_id: result.id,     
-            status: result.status,
-            date: new Date()
-        });
-
-        await nuevoPago.save();
+        // ... lógica de guardado en Mongo ...
 
         res.status(201).json({ 
             status: result.status, 
@@ -81,12 +48,9 @@ mercadoPagoRouter.post("/mercado-pago-payments", async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Error processing Mercado Pago payment! 🔴", error);
-        // Si MP devuelve un error, lo enviamos con detalle para debugear
-        res.status(500).json({ 
-            error: error.message || "Internal Server Error", 
-            details: error.cause || error.response?.data || "No details provided" 
-        });
+        // La documentación dice que revises error.response.data para ver por qué falló
+        console.error("Error MP:", error.response?.data || error.message);
+        res.status(500).json({ error: "Falla en el proceso de pago" });
     }
 });
 
