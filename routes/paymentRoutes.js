@@ -4,6 +4,9 @@ const paymentsRouter = express.Router()
 // Mongo
 const PaymentsMongo = require("../models/Payments")
 
+const authMiddleware = require("../middleware/authMiddleware")
+const adminMiddleware = require("../middleware/adminMiddleware")
+
 const esProduccion = (process.env.NODE_ENV === 'production');
 
 paymentsRouter.post("/tickets", async (req, res) => {
@@ -23,6 +26,22 @@ paymentsRouter.post("/tickets", async (req, res) => {
         res.status(500).json({ message: "Error gettings tickets! 🔴" })
     }
 })
+
+paymentsRouter.get("/all-tickets", /* authMiddleware, adminMiddleware, */ async (req, res) => {
+    try {
+        // Buscamos todos los registros sin filtros, ordenados por fecha (más recientes primero)
+        const allPayments = await PaymentsMongo.find().sort({ createdAt: -1 });
+
+        if (!allPayments || allPayments.length === 0) {
+            return res.status(404).json({ message: "No sales records found! 🔴" });
+        }
+
+        return res.status(200).json(allPayments);
+    } catch (error) {
+        console.error(esProduccion ? "Error fetching all tickets! 🔴" : "Error fetching all tickets!", error);
+        res.status(500).json({ message: "Internal Server Error 🔴" });
+    }
+});
 
 // Test
 /* paymentsRouter.post("/test-payment", async (req, res) => {
