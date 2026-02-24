@@ -9,6 +9,7 @@ const Audit = require("../models/AuditSchema")
 const loginLimiter = require("../middleware/rateLimitMiddleware")
 const checkBanned = require("../middleware/checkBanned")
 const verifyToken = require("../middleware/authMiddleware")
+const adminMiddleware = require("../middleware/adminMiddleware")
 
 const esProduccion = (process.env.NODE_ENV === 'production');
 
@@ -136,7 +137,32 @@ authRouter.post("/login-failed", async (req, res) => {
     }
 })
 
-authRouter.post("/unban-user", async (req, res) => {
+authRouter.post("/admin/ban-user", verifyToken, adminMiddleware, async (req, res) => {
+    const { email } = req.body
+    if(!email){
+            return res.status(400).json({ message: "Email is required to audit failed login! 🔴" })
+        }
+    try {
+        const now = Date.now()
+        
+      
+        const user = await auth.getUserByEmail(email)
+
+        await auth.setCustomUserClaims(user.uid, {
+            banned: true,
+            bannedAt: now,
+            bannedReason: "Banned directly by admin."
+        })
+        await auth.revokeRefreshTokens(user.uid) // Borro todos sus tokens existentes
+
+        return res.status(200).json({ message: "User banned successfully! 🟢",})
+    } catch (error) {
+        console.error(esProduccion ? `Error auditing failed login 🔴` : `Error auditing failed login 🔴 ${error}`);
+        return res.status(500).json({ message: "Error auditing failed login! 🔴" });  
+    }
+})
+
+authRouter.post("/unban-user", verifyToken, adminMiddleware, async (req, res) => {
     const { uid } = req.body
     if(!uid){
             return res.status(400).json({ message: "User UID is required! 🔴" })

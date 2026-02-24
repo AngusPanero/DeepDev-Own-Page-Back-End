@@ -10,6 +10,7 @@ const mailRouter = require("./nodemailer/nodemailer")
 const mercadoPagoRouter = require("./routes/mercadoPagoRouter")
 const raffleRouter = require("./routes/raffleRouter")
 const paymentsRouter = require("./routes/paymentRoutes")
+const firebaseRouter = require("./routes/firebaseRouter")
 const app = express()
 const PORT = process.env.PORT
 
@@ -21,7 +22,7 @@ app.use(cookieParser())
 dbConnection()
 
 app.use(cors({
-    origin: [ `${process.env.FRONT_END}`, `${process.env.FRONT_END_WWW}`, `${process.env.LOCAL_HOST}`].filter(Boolean),
+    origin: [ "*", `${process.env.FRONT_END}`, `${process.env.FRONT_END_WWW}`, `${process.env.LOCAL_HOST}`].filter(Boolean),
     methods: [ "GET", "POST", "PUT", "DELETE" ],
     credentials: true
 }))
@@ -32,6 +33,7 @@ app.use(mailRouter)
 app.use(mercadoPagoRouter)
 app.use(raffleRouter)
 app.use(paymentsRouter)
+app.use(firebaseRouter)
 
 app.use((req,res) => {
     res.send(`<h1>404 - Not Found</h1>`)

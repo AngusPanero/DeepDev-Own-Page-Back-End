@@ -1,20 +1,19 @@
-const auth = require("../config/firebase")
-
+const auth = require("../config/firebase");
 const esProduccion = (process.env.NODE_ENV === 'production');
 
 const adminMiddleware = async (req, res, next) => {
-    // 1. Extraer la cookie (asegúrate de usar 'cookie-parser' en tu app.js)
-    const sessionCookie = req.cookies.session || "";
+    // 1. Cambiamos 'session' por 'idToken' para que coincida con tu router
+    const token = req.cookies.idToken; 
 
-    if(!sessionCookie){
-            return res.status(401).json({ message: "No credentials! 🔴" })
-        }
+    if (!token) {
+        return res.status(401).json({ message: "No credentials! 🔴" });
+    }
+
     try {
-        // 2. Verificar la cookie de sesión de Firebase
-        // checkRevoked: true verifica si la sesión fue cerrada
-        const decodedClaims = await auth.verifySessionCookie(sessionCookie, true);
+        // 2. Usamos verifyIdToken porque es lo que estás guardando en la cookie
+        const decodedClaims = await auth.verifyIdToken(token);
 
-        // 3. Chequear el custom claim de admin
+        // 3. Verificamos el claim de admin
         if (decodedClaims.admin === true) {
             req.user = decodedClaims;
             next();
@@ -22,9 +21,9 @@ const adminMiddleware = async (req, res, next) => {
             return res.status(403).json({ message: "ACCESS_DENIED: ADMIN_ONLY_ZONE 🔴" });
         }
     } catch (error) {
-        console.error(esProduccion ? `Unauthorized! 🔴`: `Unauthorized! 🔴 ${error}`);
+        console.error(esProduccion ? `Unauthorized! 🔴` : `Unauthorized! 🔴 ${error}`);
         return res.status(401).json({ message: "Unauthorized" });
     }
 };
 
-module.exports = adminMiddleware
+module.exports = adminMiddleware;

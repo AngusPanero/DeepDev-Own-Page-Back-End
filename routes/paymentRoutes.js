@@ -27,7 +27,7 @@ paymentsRouter.post("/tickets", async (req, res) => {
     }
 })
 
-paymentsRouter.get("/all-tickets", /* authMiddleware, adminMiddleware, */ async (req, res) => {
+paymentsRouter.get("/all-tickets", authMiddleware, adminMiddleware, async (req, res) => {
     try {
         // Buscamos todos los registros sin filtros, ordenados por fecha (más recientes primero)
         const allPayments = await PaymentsMongo.find().sort({ createdAt: -1 });
@@ -35,7 +35,7 @@ paymentsRouter.get("/all-tickets", /* authMiddleware, adminMiddleware, */ async 
         if (!allPayments || allPayments.length === 0) {
             return res.status(404).json({ message: "No sales records found! 🔴" });
         }
-
+        
         return res.status(200).json(allPayments);
     } catch (error) {
         console.error(esProduccion ? "Error fetching all tickets! 🔴" : "Error fetching all tickets!", error);
