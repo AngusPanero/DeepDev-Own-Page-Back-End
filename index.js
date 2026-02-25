@@ -24,7 +24,8 @@ dbConnection()
 app.use(cors({
     origin: [`${process.env.FRONT_END}`, `${process.env.FRONT_END_WWW}`, `${process.env.LOCAL_HOST}`].filter(Boolean),
     methods: [ "GET", "POST", "PUT", "DELETE" ],
-    credentials: true
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization']
 }))
 
 app.use(authRouter)
