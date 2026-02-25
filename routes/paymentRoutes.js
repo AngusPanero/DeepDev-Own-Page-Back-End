@@ -4,7 +4,7 @@ const paymentsRouter = express.Router()
 // Mongo
 const PaymentsMongo = require("../models/Payments")
 
-const authMiddleware = require("../middleware/authMiddleware")
+const verifyToken = require("../middleware/authMiddleware")
 const adminMiddleware = require("../middleware/adminMiddleware")
 
 const esProduccion = (process.env.NODE_ENV === 'production');
@@ -27,7 +27,7 @@ paymentsRouter.post("/tickets", async (req, res) => {
     }
 })
 
-paymentsRouter.get("/all-tickets", authMiddleware, adminMiddleware, async (req, res) => {
+paymentsRouter.get("/all-tickets", verifyToken, adminMiddleware, async (req, res) => {
     try {
         // Buscamos todos los registros sin filtros, ordenados por fecha (más recientes primero)
         const allPayments = await PaymentsMongo.find().sort({ createdAt: -1 });
