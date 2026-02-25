@@ -12,7 +12,7 @@ const adminMiddleware = async (req, res, next) => {
     try {
         // 2. Usamos verifyIdToken porque es lo que estás guardando en la cookie
         const decodedClaims = await auth.verifyIdToken(token);
-
+        
         // 3. Verificamos el claim de admin
         if (decodedClaims.admin === true) {
             req.user = decodedClaims;

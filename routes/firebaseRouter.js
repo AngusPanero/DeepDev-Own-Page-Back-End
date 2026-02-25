@@ -3,12 +3,12 @@ const express = require("express");
 const firebaseRouter = express.Router();
 const auth = require("../config/firebase"); // Tu configuración de firebase-admin
 // Importa tus middlewares de seguridad
-const authMiddleware = require("../middleware/authMiddleware"); 
+const verifyToken = require("../middleware/authMiddleware"); 
 const adminMiddleware = require("../middleware/adminMiddleware");
 
 const esProduccion = (process.env.NODE_ENV === 'production');
 
-firebaseRouter.get("/admin/users", authMiddleware, adminMiddleware, async (req, res) => {
+firebaseRouter.get("/admin/users", verifyToken, adminMiddleware, async (req, res) => {
     try {
         // Listamos hasta 1000 usuarios
         const listUsersResult = await auth.listUsers(1000);
