@@ -63,7 +63,7 @@ authRouter.post("/login", loginLimiter, async (req, res) => {
         // Devuelvo la Cookie
         res.cookie("idToken", idToken, {
             httpOnly: true,
-            sameSite: "strict", // Cambiado de 'lax' a 'strict' para mayor seguridad en auth
+            sameSite: esProduccion ? "none" : "lax",
             secure: process.env.NODE_ENV === 'production', // Solo envía por HTTPS en producción
             maxAge: 60 * 60 * 1000 // Es buena práctica ponerle una duración (ej. 1 hora)
         })
@@ -92,7 +92,7 @@ authRouter.post("/logout", async (req, res) => {
         // Limpio Cookie
         res.clearCookie("idToken", {
             httpOnly: true,
-            sameSite: "strict", // Debe coincidir con el valor de res.cookie
+            sameSite: esProduccion ? "none" : "lax",
             secure: process.env.NODE_ENV === 'production' // Debe coincidir 
         })
 
