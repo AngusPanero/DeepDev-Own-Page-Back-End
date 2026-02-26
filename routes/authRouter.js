@@ -137,7 +137,7 @@ authRouter.post("/login-failed", async (req, res) => {
     }
 })
 
-authRouter.post("/admin/ban-user", /* verifyToken, */ /* adminMiddleware, */ async (req, res) => {
+authRouter.post("/admin/ban-user", adminMiddleware, async (req, res) => {
     const { email } = req.body
     if(!email){
             return res.status(400).json({ message: "Email is required to audit failed login! 🔴" })
@@ -162,7 +162,7 @@ authRouter.post("/admin/ban-user", /* verifyToken, */ /* adminMiddleware, */ asy
     }
 })
 
-authRouter.post("/unban-user", /* verifyToken, */ /* adminMiddleware, */ async (req, res) => {
+authRouter.post("/unban-user", adminMiddleware, async (req, res) => {
     const { uid } = req.body
     if(!uid){
             return res.status(400).json({ message: "User UID is required! 🔴" })

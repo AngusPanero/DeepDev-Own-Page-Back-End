@@ -8,7 +8,6 @@ const adminMiddleware = async (req, res, next) => {
     if (!token) {
         return res.status(401).json({ message: "No credentials! 🔴" });
     }
-
     try {
         // 2. Usamos verifyIdToken porque es lo que estás guardando en la cookie
         const decodedClaims = await auth.verifyIdToken(token);

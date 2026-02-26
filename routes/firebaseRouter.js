@@ -8,7 +8,7 @@ const adminMiddleware = require("../middleware/adminMiddleware");
 
 const esProduccion = (process.env.NODE_ENV === 'production');
 
-firebaseRouter.get("/admin/users",/*  verifyToken, */ /* adminMiddleware, */ async (req, res) => {
+firebaseRouter.get("/admin/users", adminMiddleware, async (req, res) => {
     try {
         // Listamos hasta 1000 usuarios
         const listUsersResult = await auth.listUsers(1000);
