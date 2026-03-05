@@ -126,8 +126,9 @@ authRouter.post("/logout", async (req, res) => {
         res.clearCookie("idToken", {
             httpOnly: true,
             sameSite: esProduccion ? "none" : "lax",
-            secure: true
-        })
+            secure: true,
+            path: "/" // <--- AGREGA ESTO
+        });
 
         return res.status(200).json({ message: "Logout audited! 🟢" })
     } catch (error) {
