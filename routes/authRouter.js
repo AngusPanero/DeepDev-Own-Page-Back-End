@@ -80,8 +80,9 @@ authRouter.post("/login", loginLimiter, async (req, res) => {
         res.cookie("idToken", idToken, {
             httpOnly: true,
             sameSite: esProduccion ? "none" : "lax",
-            secure: esProduccion,
-            maxAge: 60 * 60 * 1000
+            secure: true,
+            maxAge: 60 * 60 * 1000,
+            path: "/"
         });
 
         // Enviamos los datos necesarios para el setUser del front
@@ -125,7 +126,7 @@ authRouter.post("/logout", async (req, res) => {
         res.clearCookie("idToken", {
             httpOnly: true,
             sameSite: esProduccion ? "none" : "lax",
-            secure: process.env.NODE_ENV === 'production' // Debe coincidir 
+            secure: true
         })
 
         return res.status(200).json({ message: "Logout audited! 🟢" })
