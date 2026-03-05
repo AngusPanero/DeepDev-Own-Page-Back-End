@@ -11,6 +11,9 @@ const checkBanned = require("../middleware/checkBanned")
 const verifyToken = require("../middleware/authMiddleware")
 const adminMiddleware = require("../middleware/adminMiddleware")
 
+// Axios
+const axios = require("axios")
+
 const esProduccion = (process.env.NODE_ENV === 'production');
 
 authRouter.post("/register", async (req, res) => {
@@ -40,40 +43,69 @@ authRouter.post("/register", async (req, res) => {
 })
 
 authRouter.post("/login", loginLimiter, async (req, res) => {
-    const { idToken } = req.body
+    const { email, password } = req.body; 
+
     try {
-        const decoded = await auth.verifyIdToken(idToken)
-        
-        // Primero chequeo que no este baneado, si no lo esta, le reseteo las custom claims
-        if(!decoded.banned){
-            await Audit.findOneAndUpdate(
-                { email: decoded.email, event: "login-failed" },
-                { $set: { attempts: 0, lastAttemptAt: null } }
-            )
+        // 1. Validar credenciales contra la API de Firebase Auth
+        const firebaseResponse = await axios.post(
+            `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${process.env.FIREBASE_API_KEY}`,
+            { email, password, returnSecureToken: true }
+        );
+
+        const { idToken, localId: uid } = firebaseResponse.data;
+
+        // 2. Verificar el token obtenido y obtener claims
+        const decoded = await auth.verifyIdToken(idToken);
+
+        // 3. Control de Baneo (Lógica de negocio)
+        if (decoded.banned) {
+            return res.status(403).json({ code: "auth/user-banned", message: "User is banned" });
         }
-        // Aurito el login exitoso
+
+        // 4. Limpiar intentos fallidos y Auditar
+        await Audit.findOneAndUpdate(
+            { email: decoded.email, event: "login-failed" },
+            { $set: { attempts: 0, lastAttemptAt: null } }
+        );
+
         await Audit.create({
-            uid: decoded.uid,
+            uid: uid,
             email: decoded.email,
             event: "login",
             ip: req.ip,
-            userAgent: req.headers["user-agent"],
-            attempts: decoded.attempts
-        })
-        // Devuelvo la Cookie
+            userAgent: req.headers["user-agent"]
+        });
+
+        // 5. Configurar Cookie
         res.cookie("idToken", idToken, {
             httpOnly: true,
             sameSite: esProduccion ? "none" : "lax",
-            secure: process.env.NODE_ENV === 'production', // Solo envía por HTTPS en producción
-            maxAge: 60 * 60 * 1000 // Es buena práctica ponerle una duración (ej. 1 hora)
-        })
+            secure: esProduccion,
+            maxAge: 60 * 60 * 1000
+        });
 
-        return res.status(200).json({ message: "Login Audited! 🟢" })
+        // Enviamos los datos necesarios para el setUser del front
+        return res.status(200).json({ 
+            user: decoded, 
+            idToken,
+            isAdmin: decoded.admin === true 
+        });
+
     } catch (error) {
-        console.error(esProduccion ? `Invalid token! 🔴` : `Invalid token! 🔴 ${error}`);
-        return res.status(401).json({ message: "Invalid token 🔴" });
+        const errorCode = error.response?.data?.error?.message;
+        
+        if (
+            errorCode === "INVALID_PASSWORD" || 
+            errorCode === "EMAIL_NOT_FOUND" || 
+            errorCode === "INVALID_LOGIN_CREDENTIALS"
+        ) {
+            return res.status(401).json({ code: "auth/invalid-credential" });
+        }
+        
+        console.error(esProduccion ? "Login Error" :"Login Error:", errorCode || error.message);
+        return res.status(500).json({ message: "Internal Server Error" });
     }
-})
+});
 
 authRouter.post("/logout", async (req, res) => {
     const { idToken } = req.body
@@ -106,6 +138,7 @@ authRouter.post("/logout", async (req, res) => {
 
 authRouter.post("/login-failed", async (req, res) => {
     const { email } = req.body
+    console.log("Auditing failed login for email:", email);
     if(!email){
             return res.status(400).json({ message: "Email is required to audit failed login! 🔴" })
         }
@@ -196,8 +229,39 @@ authRouter.post("/unban-user", adminMiddleware, async (req, res) => {
     }
 })
 
-authRouter.get("/me", verifyToken, checkBanned, (req, res) => {
-  res.status(200).json({ uid: req.user.uid, email: req.user.email, role: req.user.admin ? "admin" : "user"});
+authRouter.get("/check-auth", verifyToken, async (req, res) => {
+    const idToken = req.cookies.idToken;
+
+    if (!idToken) {
+        return res.status(401).json({ authenticated: false });
+    }
+
+    try {
+        const decoded = await auth.verifyIdToken(idToken);
+        return res.status(200).json({ 
+            authenticated: true, 
+            user: decoded,
+            isAdmin: decoded.admin === true 
+        });
+    } catch (error) {
+        return res.status(401).json({ authenticated: false });
+    }
+});
+
+authRouter.get("/me", verifyToken, checkBanned, async (req, res) => {
+    const idToken = req.cookies.idToken; 
+
+    if (!idToken) return res.status(401).json({ message: "No token" });
+    try {
+        const decoded = await auth.verifyIdToken(idToken);
+        
+        if (decoded.banned) {
+            return res.status(403).json({ message: "Banned" });
+        }
+        return res.status(200).json({ user: decoded });
+    } catch (error) {
+        return res.status(401).json({ message: "Invalid token" });
+    }
 });
 
 module.exports = authRouter
