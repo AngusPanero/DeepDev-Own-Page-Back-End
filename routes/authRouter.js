@@ -79,7 +79,7 @@ authRouter.post("/login", loginLimiter, async (req, res) => {
         // 5. Configurar Cookie
         res.cookie("idToken", idToken, {
             httpOnly: true,
-            sameSite: esProduccion ? "none" : "lax",
+            sameSite: "none",
             secure: true,
             maxAge: 60 * 60 * 1000,
             path: "/"
@@ -125,7 +125,7 @@ authRouter.post("/logout", async (req, res) => {
         // Limpio Cookie
         res.clearCookie("idToken", {
             httpOnly: true,
-            sameSite: esProduccion ? "none" : "lax",
+            sameSite: "none",
             secure: true,
             path: "/" // <--- AGREGA ESTO
         });
