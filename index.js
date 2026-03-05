@@ -22,7 +22,7 @@ app.use(cookieParser())
 dbConnection()
 
 app.use(cors({
-    origin: [`${process.env.FRONT_END}`, `${process.env.FRONT_END_WWW}`, `${process.env.LOCAL_HOST}`].filter(Boolean),
+    origin: [`${process.env.FRONT_END}`, `${process.env.FRONT_END_WWW}`, `${process.env.LOCAL_HOST}`, `${process.env.FRONT_END_IPHONE}`].filter(Boolean),
     methods: [ "GET", "POST", "PUT", "DELETE" ],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization']
