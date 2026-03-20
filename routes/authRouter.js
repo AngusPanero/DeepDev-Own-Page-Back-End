@@ -127,7 +127,7 @@ authRouter.post("/logout", async (req, res) => {
             httpOnly: true,
             sameSite: "none",
             secure: true,
-            path: "/" // <--- AGREGA ESTO
+            path: "/" 
         });
 
         return res.status(200).json({ message: "Logout audited! 🟢" })

@@ -11,6 +11,7 @@ const mercadoPagoRouter = require("./routes/mercadoPagoRouter")
 const raffleRouter = require("./routes/raffleRouter")
 const paymentsRouter = require("./routes/paymentRoutes")
 const firebaseRouter = require("./routes/firebaseRouter")
+const productRouter = require("./routes/productRouter")
 const app = express()
 const PORT = process.env.PORT
 
@@ -23,7 +24,7 @@ dbConnection()
 
 app.use(cors({
     origin: [`${process.env.FRONT_END}`, `${process.env.FRONT_END_WWW}`, `${process.env.LOCAL_HOST}`].filter(Boolean),
-    methods: [ "GET", "POST", "PUT", "DELETE" ],
+    methods: [ "GET", "POST", "PUT", "PATCH", "DELETE" ],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization']
 }))
@@ -35,6 +36,7 @@ app.use(mercadoPagoRouter)
 app.use(raffleRouter)
 app.use(paymentsRouter)
 app.use(firebaseRouter)
+app.use(productRouter)
 
 app.use((req,res) => {
     res.send(`<h1>404 - Not Found</h1>`)
