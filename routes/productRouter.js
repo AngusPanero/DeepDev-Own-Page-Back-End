@@ -4,6 +4,7 @@ const Product = require('../models/productModel');
 const Category = require("../models/CategorySchema")
 const Favorite = require("../models/FavoriteSchema")
 const Reseñas = require("../models/ReseñasSchema")
+const Coupon = require("../models/CouponSchema")
 const mongoose = require('mongoose');   
 
 // CSV EXCEL
@@ -578,4 +579,4 @@ productRouter.get("/api/product-reviews", async (req, res) => {
     }
 })
 
-module.exports = productRouter;
+module.exports = productRouter; 

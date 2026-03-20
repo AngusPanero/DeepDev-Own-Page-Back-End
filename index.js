@@ -12,6 +12,7 @@ const raffleRouter = require("./routes/raffleRouter")
 const paymentsRouter = require("./routes/paymentRoutes")
 const firebaseRouter = require("./routes/firebaseRouter")
 const productRouter = require("./routes/productRouter")
+const cartRouter = require("./routes/cartRouter")
 const app = express()
 const PORT = process.env.PORT
 
@@ -37,6 +38,7 @@ app.use(raffleRouter)
 app.use(paymentsRouter)
 app.use(firebaseRouter)
 app.use(productRouter)
+app.use(cartRouter)
 
 app.use((req,res) => {
     res.send(`<h1>404 - Not Found</h1>`)
