@@ -5,12 +5,15 @@ const Cart = require("../models/CartSchema")
 const Product = require("../models/productModel")
 const mongoose = require('mongoose');   
 const verifyToken = require('../middleware/authMiddleware');
+const adminMiddleware = require('../middleware/adminMiddleware');
 
 const esProduccion = (process.env.NODE_ENV === 'pproduction');
 
 // CREAR NUEVO CUPÓN
-cartRouter.post("/api/coupons/create", async (req, res) => {
+cartRouter.post("/api/coupons/create", adminMiddleware, async (req, res) => {
     const { couponData } = req.body;
+    console.log("CUPON DATA", couponData);
+    
 
     if (!couponData || typeof couponData !== 'object') {
         return res.status(400).json({ message: "Datos de cupón no proporcionados o formato inválido 🔴" });
@@ -68,7 +71,7 @@ cartRouter.post("/api/coupons/create", async (req, res) => {
 });
 
 // VALIDAR CUPONES DESCUENTO
-cartRouter.post("/api/coupons/validate", async (req, res) => {
+cartRouter.post("/api/coupons/validate", verifyToken, async (req, res) => {
     const { code, email } = req.body;
 
     const sanitizedCode = code?.toString().trim().toUpperCase();
@@ -100,65 +103,111 @@ cartRouter.post("/api/coupons/validate", async (req, res) => {
     }
 });
 
+// OBTENER CUPONES
+cartRouter.get("/api/coupons/all", adminMiddleware, async (req, res) => {
+    try {
+        const coupons = await Coupon.find().sort({ createdAt: -1 });
+        res.status(200).json(coupons);
+    } catch (error) {
+        res.status(500).json({ message: "Error al obtener cupones 🔴" });
+    }
+});
+
+// ELIMINAR CUPÓN
+cartRouter.delete("/api/coupons/:id", adminMiddleware, async (req, res) => {
+    try {
+        const { id } = req.params;
+        await Coupon.findByIdAndDelete(id);
+        res.status(200).json({ message: "Cupón eliminado correctamente 🟢" });
+    } catch (error) {
+        res.status(500).json({ message: "Error al eliminar el cupón 🔴" });
+    }
+});
+
 // CREAR - SINCRONIZAR CARRITO
 cartRouter.post("/api/cart/sync", verifyToken, async (req, res) => {
-    const { email, items, appliedCoupon } = req.body;
-
+    const { email, items, appliedCoupon, merge = false } = req.body; 
     const sanitizedEmail = email?.trim().toLowerCase();
     
     if (!sanitizedEmail || !Array.isArray(items)) {
-        return res.status(400).json({ message: "Datos de carrito inválidos 🔴" });
-    }
-
-    if (req.user.email !== sanitizedEmail) {
-        return res.status(403).json({ message: "No tienes permiso para sincronizar este carrito 🔴" });
-    }
-
-    if (items.length > 100) {
-        return res.status(400).json({ message: "El carrito excede el límite de ítems 🔴" });
+        return res.status(400).json({ message: "Datos inválidos 🔴" });
     }
 
     try {
-        await Cart.findOneAndUpdate(
-            { userEmail: sanitizedEmail },
-            { items, appliedCoupon },
-            { upsert: true, new: true }
-        );
-        res.status(200).json({ message: "Carrito sincronizado ✅" });
+        let existingCart = await Cart.findOne({ userEmail: sanitizedEmail });
+
+        if (!existingCart) {
+            existingCart = new Cart({ userEmail: sanitizedEmail, items, appliedCoupon });
+        } else {
+            if (merge) {
+                items.forEach(newItem => {
+                    const idx = existingCart.items.findIndex(i => i.productId.toString() === newItem.productId.toString());
+                    if (idx > -1) {
+                        existingCart.items[idx].quantity += newItem.quantity;
+                    } else {
+                        existingCart.items.push(newItem);
+                    }
+                });
+            } else {
+                existingCart.items = items;
+            }
+            if (appliedCoupon) existingCart.appliedCoupon = appliedCoupon;
+        }
+
+        await existingCart.save();
+        res.status(200).json({ message: "Sincronizado ✅", items: existingCart.items });
     } catch (error) {
-        console.error(`[${new Date().toISOString()}] ERROR en sincronizar carrito cartRouter = POST :`, error);
-        res.status(500).json({ message: "Error al sincronizar carrito" });}
+        console.error(`[${new Date().toISOString()}] ERROR en SYNC CART cartRouter = POST :`, error);
+        res.status(500).json({ message: "Error en servidor" });
+    }
 });
 
 // OBTENER CARRITO
 cartRouter.get("/api/cart/:email", verifyToken, async (req, res) => {
     const { email } = req.params;
-    try {
-        
-        const cart = await Cart.findOne({ userEmail: email.toLowerCase() })
-                               .populate('items.productId'); 
-        
-        if (!cart) return res.status(200).json({ items: [], appliedCoupon: null });
 
+    try {
+        const cart = await Cart.findOne({ userEmail: email.toLowerCase() }).populate('items.productId'); 
         
+        if (!cart) {
+            return res.status(200).json({ message: "Carrito no encontrado", items: [], appliedCoupon: null });
+        }
+        const couponToReturn = cart.appliedCoupon || null;
+
         const updatedItems = cart.items.map(item => {
             const realProduct = item.productId; 
             let alert = null;
+            let currentQuantity = item.cantidad;
 
-            if (!realProduct || realProduct.stock <= 0) {
-                alert = "Producto agotado";
-            } else if (item.cantidad > realProduct.stock) {
-                alert = `Stock reducido a ${realProduct.stock} unidades`;
-                item.cantidad = realProduct.stock; 
+            if (!realProduct) {
+                alert = "Este producto ya no está disponible";
+                return { ...item._doc, stockMax: 0, alert };
             }
 
-            return { ...item._doc,productId: realProduct._id, stockMax: realProduct.stock, alert };
+            if (realProduct.stock <= 0) {
+                alert = "Producto agotado 🔴";
+                currentQuantity = 0; 
+            } else if (item.cantidad > realProduct.stock) {
+                alert = `Stock reducido a ${realProduct.stock} unidades ⚠️`;
+                currentQuantity = realProduct.stock;
+            }
+
+            return { 
+                ...item._doc, 
+                productId: realProduct._id, 
+                nombre: realProduct.nombre || item.nombre,
+                precio: realProduct.precio || item.precio,
+                stockMax: realProduct.stock, 
+                cantidad: currentQuantity,
+                alert 
+            };
         });
 
-        res.status(200).json({ message: "Carrito verificado con éxito 🟢", items: updatedItems, appliedCoupon: cart.appliedCoupon });
+        res.status(200).json({ message: "Carrito verificado con éxito 🟢", items: updatedItems, appliedCoupon: couponToReturn });
+
     } catch (error) {
-        console.error(`[${new Date().toISOString()}] ERROR en obtener carrito cartRouter = GET :`, error);
-        res.status(500).json({ message: "Error al recuperar el carrito 🔴" });
+        console.error(`[${new Date().toISOString()}] ERROR en GET /api/cart/:email :`, error);
+        res.status(500).json({ message: "Error al recuperar el carrito 🔴", error: error.message });
     }
 });
 
