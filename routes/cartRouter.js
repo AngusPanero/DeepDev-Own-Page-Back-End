@@ -252,8 +252,62 @@ cartRouter.post("/api/checkout/success", verifyToken, async (req, res) => {
         res.status(200).json({ message: "Compra procesada: Stock actualizado y carrito limpio 🟢" });
 
     } catch (error) {
-        console.error("ERROR EN CHECKOUT SUCCESS:", error);
+        console.error(`[${new Date().toISOString()}] ERROR SUCCESS PROCESS cartRouter: POST`, error);
         res.status(500).json({ message: "Error crítico al finalizar la compra 🔴" });
+    }
+});
+
+// RECHECK PRECIOS DB PROMO
+cartRouter.post('/api/products/validate-prices', async (req, res) => {
+    try {
+        const { productIds } = req.body; 
+
+        const products = await Product.find({
+            $or: [
+                { _id: { $in: productIds } },
+                { "variantes._id": { $in: productIds } }
+            ]
+        }).select('precio_base en_promocion porcentaje_promo stock_base variantes');
+
+        const formatted = productIds.map(id => {
+            const p = products.find(prod => 
+                prod._id.toString() === id || 
+                prod.variantes.some(v => v._id.toString() === id)
+            );
+
+            if (!p) return null;
+
+            let precioFinal = p.precio_base;
+            if (p.en_promocion && p.porcentaje_promo > 0) {
+                precioFinal = p.precio_base * (1 - p.porcentaje_promo / 100);
+            }
+
+            const varianteEncontrada = p.variantes.find(v => v._id.toString() === id);
+
+            if (varianteEncontrada) {
+                precioFinal += (varianteEncontrada.precio_adicional || 0);
+                if (p.en_promocion && p.porcentaje_promo > 0) {
+                     precioFinal = (p.precio_base + (varianteEncontrada.precio_adicional || 0)) * (1 - p.porcentaje_promo / 100);
+                }
+
+                return {
+                    productId: id, 
+                    precio: Math.round(precioFinal),
+                    stockMax: varianteEncontrada.stock || 0
+                };
+            } else {
+                return {
+                    productId: id,
+                    precio: Math.round(precioFinal),
+                    stockMax: p.stock_base || 0
+                };
+            }
+        }).filter(item => item !== null);
+        
+        res.status(200).json(formatted);
+    } catch (error) {
+        console.error(`[${new Date().toISOString()}] ERROR VALIDATE PRODUCTOS - PRECIOS cartRouter: POST`, error);
+        res.status(500).json({ message: "Error al validar precios" });
     }
 });
 
