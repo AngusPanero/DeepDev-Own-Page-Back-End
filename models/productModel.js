@@ -11,14 +11,6 @@ const productSchema = new mongoose.Schema({
     required: [true, 'La marca es obligatoria'], 
     trim: true ,
   },
-  /* color: { 
-    type: String, 
-    trim: true ,
-  },
-  talle: { 
-    type: String, 
-    trim: true ,
-  }, */
   stock_base: { 
     type: Number, 
     required: true, 
@@ -73,8 +65,13 @@ const productSchema = new mongoose.Schema({
     default: 0,
     min: 0,
     max: 100
+  },
+  cuotas_sin_interes: {
+    type: Number,
+    default: 0, 
+    min: 0,
+    enum: [0, 3, 6, 9, 12] 
   }
-
 }, { 
   timestamps: true 
 });

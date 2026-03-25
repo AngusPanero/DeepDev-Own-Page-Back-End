@@ -12,8 +12,6 @@ const esProduccion = (process.env.NODE_ENV === 'pproduction');
 // CREAR NUEVO CUPÓN
 cartRouter.post("/api/coupons/create", adminMiddleware, async (req, res) => {
     const { couponData } = req.body;
-    console.log("CUPON DATA", couponData);
-    
 
     if (!couponData || typeof couponData !== 'object') {
         return res.status(400).json({ message: "Datos de cupón no proporcionados o formato inválido 🔴" });
@@ -127,6 +125,10 @@ cartRouter.delete("/api/coupons/:id", adminMiddleware, async (req, res) => {
 // CREAR - SINCRONIZAR CARRITO
 cartRouter.post("/api/cart/sync", verifyToken, async (req, res) => {
     const { email, items, appliedCoupon, merge = false } = req.body; 
+    console.log("CART SYN REQ BODY", req.body);
+    
+    console.log("CART SYNC", items[0]?.cuotas_sin_interes);
+    
     const sanitizedEmail = email?.trim().toLowerCase();
     
     if (!sanitizedEmail || !Array.isArray(items)) {
@@ -227,20 +229,44 @@ cartRouter.delete("/api/cart/clear/:email", verifyToken, async (req, res) => {
 });
 
 //  CHECKOUT SUCCESS
-cartRouter.post("/api/checkout/success", verifyToken, async (req, res) => {
+cartRouter.post("/api/checkout/success", /* verifyToken, */ async (req, res) => {
     const { email, couponCode, items } = req.body; 
     const sanitizedEmail = email.toLowerCase();
 
     if (!items || !Array.isArray(items) || items.length === 0) {
         return res.status(400).json({ message: "No hay productos para procesar 🔴" });
     }
+
     try {
-        const stockOperations = items.map(item => ({
-            updateOne: {
-                filter: { _id: item.productId },
-                update: { $inc: { stock: -item.cantidad } } 
+        const stockOperations = items.map(item => {
+            if(typeof item.cantidad !== 'number' || typeof item.stockMax !== 'number'){
+                return res.status(409).json({ message: "No es posible procesar productos cuyos valores no sean númericos! 🔴" })
             }
-        }));
+            if (isNaN(item.cantidad) || isNaN(item.stockMax)) {
+                return res.status(409).json({ message: "Los valores numéricos no son válidos! 🔴" });
+            }
+            if(item.cantidad > item.stockMax){
+                return res.status(409).json({ message: "No es posible procesar productos que excedan el stock máximo! 🔴" })
+            }
+            if(item.cantidad <= 0){
+                return res.status(409).json({ message: "No es posible procesar productos con cantidades negativas o iguales a cero! 🔴" })
+            }
+            if (item.id !== item.productId) {
+                return {
+                    updateOne: {
+                        filter: { _id: item.productId, "variantes._id": item.id },
+                        update: { $inc: { "variantes.$.stock": - item.cantidad } } 
+                    }
+                };
+            } else {
+                return {
+                    updateOne: {
+                        filter: { _id: item.productId },
+                        update: { $inc: { stock_base: -item.cantidad } } 
+                    }
+                };
+            }
+        });
         await Product.bulkWrite(stockOperations);
         if (couponCode) {
             await Coupon.findOneAndUpdate(
@@ -249,15 +275,16 @@ cartRouter.post("/api/checkout/success", verifyToken, async (req, res) => {
             );
         }
         await Cart.findOneAndDelete({ userEmail: sanitizedEmail });
-        res.status(200).json({ message: "Compra procesada: Stock actualizado y carrito limpio 🟢" });
+
+        res.status(200).json({ message: "Compra procesada: Stock actualizado correctamente 🟢" });
 
     } catch (error) {
-        console.error(`[${new Date().toISOString()}] ERROR SUCCESS PROCESS cartRouter: POST`, error);
+        console.error(`[${new Date().toISOString()}] ERROR SUCCESS PROCESS:`, error);
         res.status(500).json({ message: "Error crítico al finalizar la compra 🔴" });
     }
 });
 
-// RECHECK PRECIOS DB PROMO
+// RECHECK PRECIOS DB PROMO (CON CUOTAS)
 cartRouter.post('/api/products/validate-prices', async (req, res) => {
     try {
         const { productIds } = req.body; 
@@ -267,7 +294,7 @@ cartRouter.post('/api/products/validate-prices', async (req, res) => {
                 { _id: { $in: productIds } },
                 { "variantes._id": { $in: productIds } }
             ]
-        }).select('precio_base en_promocion porcentaje_promo stock_base variantes');
+        }).select('precio_base en_promocion porcentaje_promo stock_base variantes cuotas_sin_interes');
 
         const formatted = productIds.map(id => {
             const p = products.find(prod => 
@@ -278,28 +305,32 @@ cartRouter.post('/api/products/validate-prices', async (req, res) => {
             if (!p) return null;
 
             let precioFinal = p.precio_base;
-            if (p.en_promocion && p.porcentaje_promo > 0) {
-                precioFinal = p.precio_base * (1 - p.porcentaje_promo / 100);
-            }
+            const tienePromo = p.en_promocion && p.porcentaje_promo > 0;
 
             const varianteEncontrada = p.variantes.find(v => v._id.toString() === id);
 
             if (varianteEncontrada) {
-                precioFinal += (varianteEncontrada.precio_adicional || 0);
-                if (p.en_promocion && p.porcentaje_promo > 0) {
-                     precioFinal = (p.precio_base + (varianteEncontrada.precio_adicional || 0)) * (1 - p.porcentaje_promo / 100);
-                }
+                const precioConAdicional = p.precio_base + (varianteEncontrada.precio_adicional || 0);
+                precioFinal = tienePromo 
+                    ? precioConAdicional * (1 - p.porcentaje_promo / 100)
+                    : precioConAdicional;
 
                 return {
                     productId: id, 
                     precio: Math.round(precioFinal),
-                    stockMax: varianteEncontrada.stock || 0
+                    stockMax: varianteEncontrada.stock || 0,
+                    cuotas_sin_interes: p.cuotas_sin_interes || 0 
                 };
             } else {
+                precioFinal = tienePromo 
+                    ? p.precio_base * (1 - p.porcentaje_promo / 100)
+                    : p.precio_base;
+
                 return {
                     productId: id,
                     precio: Math.round(precioFinal),
-                    stockMax: p.stock_base || 0
+                    stockMax: p.stock_base || 0,
+                    cuotas_sin_interes: p.cuotas_sin_interes || 0
                 };
             }
         }).filter(item => item !== null);

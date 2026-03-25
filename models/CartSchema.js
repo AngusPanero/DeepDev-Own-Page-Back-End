@@ -20,14 +20,14 @@ const CartSchema = new mongoose.Schema({
             precio: Number,
             imagen: String,
             cantidad: { type: Number, min: 1 },
-            stockMax: Number
+            stockMax: Number,
+            cuotas_sin_interes: { type: Number, default: 0 }
         }
-    ]
+    ],
 }, { timestamps: true });
 
 // Cart.js
 CartSchema.post('init', function(doc) {
-    // ESTO TIENE QUE APARECER SÍ O SÍ EN TU TERMINAL DE VS CODE
     console.log("-----------------------------------------");
     console.log(">>> EJECUTANDO MIDDLEWARE INIT PARA:", doc.userEmail);
     
