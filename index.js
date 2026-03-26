@@ -37,8 +37,8 @@ app.use(mercadoPagoRouter)
 app.use(raffleRouter)
 app.use(paymentsRouter)
 app.use(firebaseRouter)
-app.use(productRouter)
-app.use(cartRouter)
+/* app.use(productRouter)
+app.use(cartRouter) */
 
 app.use((req,res) => {
     res.send(`<h1>404 - Not Found</h1>`)

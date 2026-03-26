@@ -7,7 +7,7 @@ const mongoose = require('mongoose');
 const verifyToken = require('../middleware/authMiddleware');
 const adminMiddleware = require('../middleware/adminMiddleware');
 
-const esProduccion = (process.env.NODE_ENV === 'pproduction');
+const esProduccion = (process.env.NODE_ENV === 'production');
 
 // CREAR NUEVO CUPÓN
 cartRouter.post("/api/coupons/create", adminMiddleware, async (req, res) => {

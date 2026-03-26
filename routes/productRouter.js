@@ -17,7 +17,7 @@ const upload = multer({ dest: 'uploads/' }); // Carpeta temporal
 const adminMiddleware = require("../middleware/adminMiddleware")
 const verifyToken = require("../middleware/authMiddleware")
 
-const esProduccion = (process.env.NODE_ENV === 'pproduction');
+const esProduccion = (process.env.NODE_ENV === 'production');
 
 // CREATE INDIVIDUAL
 productRouter.post("/api/product/create", adminMiddleware, async (req, res) => {
