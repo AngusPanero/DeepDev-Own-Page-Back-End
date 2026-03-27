@@ -79,7 +79,7 @@ authRouter.post("/login", loginLimiter, async (req, res) => {
         // 5. Configurar Cookie
         res.cookie("idToken", idToken, {
             httpOnly: true,
-            sameSite: "none",
+            sameSite: "lax",
             secure: true,
             domain: ".deepdev.com.ar",
             maxAge: 60 * 60 * 1000,
@@ -126,7 +126,7 @@ authRouter.post("/logout", async (req, res) => {
         // Limpio Cookie
         res.clearCookie("idToken", {
             httpOnly: true,
-            sameSite: "none",
+            sameSite: "lax",
             secure: true,
             domain: ".deepdev.com.ar",
             path: "/" 
