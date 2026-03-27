@@ -81,6 +81,7 @@ authRouter.post("/login", loginLimiter, async (req, res) => {
             httpOnly: true,
             sameSite: "none",
             secure: true,
+            domain: ".deepdev.com.ar",
             maxAge: 60 * 60 * 1000,
             path: "/"
         });
@@ -127,6 +128,7 @@ authRouter.post("/logout", async (req, res) => {
             httpOnly: true,
             sameSite: "none",
             secure: true,
+            domain: ".deepdev.com.ar",
             path: "/" 
         });
 
