@@ -86,6 +86,13 @@ authRouter.post("/login", loginLimiter, async (req, res) => {
             path: "/"
         });
 
+        /* res.cookie("idToken", idToken, {
+            httpOnly: true,
+            sameSite: "none",
+            secure: true,
+            path: "/" 
+        }); */
+
         // Enviamos los datos necesarios para el setUser del front
         return res.status(200).json({ 
             user: decoded, 
@@ -131,6 +138,13 @@ authRouter.post("/logout", async (req, res) => {
             domain: ".deepdev.com.ar",
             path: "/" 
         });
+
+        /* res.clearCookie("idToken", {
+            httpOnly: true,
+            sameSite: "none",
+            secure: true,
+            path: "/" 
+        }); */
 
         return res.status(200).json({ message: "Logout audited! 🟢" })
     } catch (error) {

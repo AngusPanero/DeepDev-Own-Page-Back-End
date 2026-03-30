@@ -11,8 +11,8 @@ const mercadoPagoRouter = require("./routes/mercadoPagoRouter")
 const raffleRouter = require("./routes/raffleRouter")
 const paymentsRouter = require("./routes/paymentRoutes")
 const firebaseRouter = require("./routes/firebaseRouter")
-const productRouter = require("./routes/productRouter")
-const cartRouter = require("./routes/cartRouter")
+/* const productRouter = require("./routes/productRouter")
+const cartRouter = require("./routes/cartRouter") */
 const app = express()
 const PORT = process.env.PORT
 

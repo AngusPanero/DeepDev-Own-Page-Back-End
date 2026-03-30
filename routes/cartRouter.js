@@ -262,7 +262,7 @@ cartRouter.post("/api/checkout/success", /* verifyToken, */ async (req, res) => 
                 return {
                     updateOne: {
                         filter: { _id: item.productId },
-                        update: { $inc: { stock_base: -item.cantidad } } 
+                        update: { $inc: { stock_base: - item.cantidad } } 
                     }
                 };
             }
