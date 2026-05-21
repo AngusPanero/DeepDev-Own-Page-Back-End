@@ -11,8 +11,8 @@ const mercadoPagoRouter = require("./routes/mercadoPagoRouter")
 const raffleRouter = require("./routes/raffleRouter")
 const paymentsRouter = require("./routes/paymentRoutes")
 const firebaseRouter = require("./routes/firebaseRouter")
-/* const productRouter = require("./routes/productRouter")
-const cartRouter = require("./routes/cartRouter") */
+const businessRouter = require("./routes/businessScrapper")
+const businessRouterRest = require("./routes/businessScrapperRest")
 const app = express()
 const PORT = process.env.PORT
 
@@ -24,12 +24,14 @@ app.use(cookieParser())
 dbConnection()
 
 app.use(cors({
-    origin: [`${process.env.API_BACKEND_URL}`, `${process.env.FRONT_END}`, `${process.env.FRONT_END_WWW}`, `${process.env.LOCAL_HOST}`].filter(Boolean),
+    origin: [`${process.env.LOCAL_LINK}`, `${process.env.API_BACKEND_URL}`, `${process.env.FRONT_END}`, `${process.env.FRONT_END_WWW}`, `${process.env.LOCAL_HOST}`].filter(Boolean),
     methods: [ "GET", "POST", "PUT", "PATCH", "DELETE" ],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }))
 
+app.use(businessRouterRest)
+app.use(businessRouter)
 app.use(authRouter)
 app.use(contactRouter)
 app.use(mailRouter)
@@ -37,8 +39,6 @@ app.use(mercadoPagoRouter)
 app.use(raffleRouter)
 app.use(paymentsRouter)
 app.use(firebaseRouter)
-/* app.use(productRouter)
-app.use(cartRouter) */
 
 app.use((req,res) => {
     res.send(`<h1>404 - Not Found</h1>`)
