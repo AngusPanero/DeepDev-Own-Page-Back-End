@@ -1,21 +1,20 @@
-const express        = require("express");
-const nodemailer     = require("nodemailer");
-const multer         = require("multer");
+const express         = require("express");
+const nodemailer      = require("nodemailer");
+const multer          = require("multer");
 const adminMiddleware = require("../middleware/adminMiddleware");
 
 const businessRouterRest = express.Router();
 
-// multer — memory storage (adjuntos en RAM, sin escribir disco)
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 10 * 1024 * 1024, files: 10 }, // max 10 MB por archivo, 10 archivos
+    limits: { fileSize: 10 * 1024 * 1024, files: 10 },
 });
 
-// ─── Email regex / helpers ────────────────────────────────────────────────────
+// ─── Email helpers ────────────────────────────────────────────────────────────
 
-const EMAIL_REGEX = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
-const IGNORED_DOMAINS = ["xxx.com"];
-const PRIORITY_PREFIXES = ["info@","contacto@","contact@","hola@","ventas@","admin@","consultas@","atencion@","reservas@", "gmail.com", "hotmail.com", "yahoo.com", "outlook.com", "live.com", "icloud.com", "protonmail.com", "hotmail.com.ar",];
+const EMAIL_REGEX       = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
+const IGNORED_DOMAINS   = ["xxx.com"];
+const PRIORITY_PREFIXES = ["info@","contacto@","contact@","hola@","ventas@","admin@","consultas@","atencion@","reservas@","gmail.com","hotmail.com","yahoo.com","outlook.com","live.com","icloud.com","protonmail.com","hotmail.com.ar"];
 
 function isValidBusinessEmail(email) {
     const lower = email.toLowerCase(), domain = lower.split("@")[1];
@@ -43,24 +42,41 @@ async function fetchEmailFromUrl(url) {
         return emails.find(e => PRIORITY_PREFIXES.some(p => e.toLowerCase().startsWith(p))) ?? emails[0];
     } catch (err) {
         clearTimeout(timeout);
-        console.warn(`[scrapeEmail] ${err.name === "AbortError" ? "Timeout" : "Error"}: ${url}`);
         return null;
     }
 }
 
-const createTransporter = () => nodemailer.createTransport({
-    service: "gmail",
-    auth: { user: process.env.EMAIL_FROM, pass: process.env.PASS_EMAIL },
-});
+// ─── Transporter — verifica config al arrancar ───────────────────────────────
 
-// ─── HTML de presentación ─────────────────────────────────────────────────────
+function createTransporter() {
+    const user = process.env.EMAIL_FROM;
+    const pass = process.env.PASS_EMAIL;
+
+    // Log en producción para confirmar que las vars existen
+    console.log(`[mailer] EMAIL_FROM=${user ? "✓ set" : "✗ MISSING"}`);
+    console.log(`[mailer] PASS_EMAIL=${pass ? "✓ set" : "✗ MISSING"}`);
+
+    if (!user || !pass) {
+        throw new Error("EMAIL_FROM o PASS_EMAIL no están definidas en las variables de entorno");
+    }
+
+    return nodemailer.createTransport({
+        service: "gmail",
+        auth: { user, pass },
+        // En producción algunos servidores necesitan esto explícito
+        tls: { rejectUnauthorized: false },
+    });
+}
+
+// ─── HTML ─────────────────────────────────────────────────────────────────────
+
 function buildPresentationHtml(introText) {
-        const year = new Date().getFullYear();
- 
+    const year = new Date().getFullYear();
+
     const body = introText
         ? introText.replace(/\n/g, "<br/>")
-        : `Dear Hiring Manager, I am writing to express my enthusiastic interest in joining your restaurant team for the upcoming summer season. I have a solid background in hospitality and customer service, and I am eager to bring my energy and dedication to your establishment. I thrive in fast-paced, high-pressure environments and take genuine pride in delivering a warm and professional experience to every guest. I am adaptable, a quick learner, and fully committed to being a reliable member of your team from day one. I am available to start at your earliest convenience and completely flexible with schedules and shifts. Please find my CV and my Cover Letter attached — I would be glad to discuss how I can contribute to your team this season. Thank you very much for your time and consideration.<br/><br/>Kind regards.<br/><br/><strong style="font-family:'Montserrat',Georgia,sans-serif;font-weight:700;color:#111111;font-size:15px;">Agustín Panero</strong><br /><br />Phone: +34 622 777 426<br/>Email: aguspanero@gmail.com`;
- 
+        : `Dear Hiring Manager,<br/><br/>I am writing to express my enthusiastic interest in joining your restaurant team for the upcoming summer season. I have a solid background in hospitality and customer service, and I am eager to bring my energy and dedication to your establishment.<br/><br/>I thrive in fast-paced, high-pressure environments and take genuine pride in delivering a warm and professional experience to every guest. I am adaptable, a quick learner, and fully committed to being a reliable member of your team from day one.<br/><br/>I am available to start at your earliest convenience and completely flexible with schedules and shifts. Please find my CV and Cover Letter attached — I would be glad to discuss how I can contribute to your team this season.<br/><br/>Thank you very much for your time and consideration.<br/><br/>Kind regards,<br/><br/><strong style="font-family:'Montserrat',Georgia,sans-serif;font-weight:700;color:#111111;font-size:15px;">Agustín Panero</strong><br/><br/>Phone: +34 622 777 426<br/>Email: aguspanero@gmail.com`;
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -69,8 +85,6 @@ function buildPresentationHtml(introText) {
 <title>Agustín Panero — Job Application</title>
 </head>
 <body style="margin:0;padding:0;background:#ffffff;font-family:'Montserrat',Georgia,sans-serif;">
- 
-<!-- BODY — plain text, left aligned -->
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
        style="background:#ffffff;padding:48px 40px 52px;">
 <tr>
@@ -80,113 +94,80 @@ function buildPresentationHtml(introText) {
   </td>
 </tr>
 </table>
- 
-<!-- FOOTER LIGHT — left aligned -->
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
        style="background:#f4f2ff;border-top:3px solid #0062FF;">
 <tr>
   <td style="padding:36px 40px 28px;">
- 
-    <!-- top row: name + availability -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-           style="margin-bottom:24px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
       <tr>
         <td style="vertical-align:top;">
           <p style="font-family:'Montserrat',Arial,sans-serif;font-size:20px;font-weight:900;
-                    letter-spacing:-0.5px;color:#0a192f;margin:0 0 3px;line-height:1;">
-            Agustín Panero
-          </p>
+                    letter-spacing:-0.5px;color:#0a192f;margin:0 0 3px;line-height:1;">Agustín Panero</p>
           <p style="font-family:'Montserrat',Arial,sans-serif;font-size:8px;font-weight:600;
                     letter-spacing:0.3em;text-transform:uppercase;color:rgba(10,25,47,0.4);margin:0;">
-            Hospitality &amp; Customer Service
-          </p>
+            Hospitality &amp; Customer Service</p>
         </td>
         <td style="text-align:right;vertical-align:top;">
           <p style="font-family:'Montserrat',Arial,sans-serif;font-size:10px;font-weight:500;
                     letter-spacing:0.18em;text-transform:uppercase;
                     color:rgba(10,25,47,0.35);margin:0;line-height:1.7;">
-            Available for Summer Season<br/>Spain &nbsp;·&nbsp; Open to relocation
-          </p>
+            Available for Summer Season<br/>Spain · Open to relocation</p>
         </td>
       </tr>
     </table>
- 
-    <!-- divider -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-           style="margin-bottom:20px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
       <tr><td style="border-top:1px solid rgba(0,98,255,0.15);"></td></tr>
     </table>
- 
-    <!-- contact + profile two columns -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-           style="margin-bottom:20px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
       <tr>
-        <!-- left: contact -->
         <td style="vertical-align:top;width:50%;">
           <p style="font-family:'Montserrat',Arial,sans-serif;font-size:11px;font-weight:600;
                     letter-spacing:0.14em;text-transform:uppercase;
                     color:rgba(10,25,47,0.4);margin:0 0 10px;">Contact</p>
- 
           <p style="font-family:'Montserrat',Arial,sans-serif;font-size:15px;font-weight:400;
                     color:#0a192f;margin:0;line-height:2.1;">
-            <a href="tel:+34622777426"
-               style="color:#0a192f;text-decoration:none;">+34 622 777 426</a><br/>
-            <a href="mailto:aguspanero@gmail.com"
-               style="color:#0a192f;text-decoration:none;">aguspanero@gmail.com</a>
+            <a href="tel:+34622777426" style="color:#0a192f;text-decoration:none;">+34 622 777 426</a><br/>
+            <a href="mailto:aguspanero@gmail.com" style="color:#0a192f;text-decoration:none;">aguspanero@gmail.com</a>
           </p>
         </td>
- 
-        <!-- right: profile -->
         <td style="vertical-align:top;padding-left:32px;">
           <p style="font-family:'Montserrat',Arial,sans-serif;font-size:11px;font-weight:600;
                     letter-spacing:0.14em;text-transform:uppercase;
                     color:rgba(10,25,47,0.4);margin:0 0 10px;">Profile</p>
- 
           <p style="font-family:'Montserrat',Arial,sans-serif;font-size:15px;font-weight:300;
                     color:rgba(10,25,47,0.65);line-height:1.75;margin:0;">
             Customer-oriented professional with hands-on experience in hospitality
             and service environments. Energetic, reliable, and fully committed
-            to delivering outstanding guest experiences.
-          </p>
+            to delivering outstanding guest experiences.</p>
         </td>
       </tr>
     </table>
- 
-    <!-- divider -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-           style="margin-bottom:16px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
       <tr><td style="border-top:1px solid rgba(0,98,255,0.1);"></td></tr>
     </table>
- 
-    <!-- copyright row -->
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
       <tr>
         <td>
           <p style="font-family:'Montserrat',Arial,sans-serif;font-size:9px;font-weight:400;
                     letter-spacing:0.1em;text-transform:uppercase;
                     color:rgba(10,25,47,0.3);margin:0;">
-            Agustín Panero &nbsp;·&nbsp; Job Application ${year}
-          </p>
+            Agustín Panero · Job Application ${year}</p>
         </td>
         <td style="text-align:right;">
           <p style="font-family:'Montserrat',Arial,sans-serif;font-size:9px;font-weight:400;
                     letter-spacing:0.08em;text-transform:uppercase;
-                    color:rgba(10,25,47,0.25);margin:0;">
-            Spain &nbsp;·&nbsp; Switzerland
-          </p>
+                    color:rgba(10,25,47,0.25);margin:0;">Spain · Switzerland</p>
         </td>
       </tr>
     </table>
- 
   </td>
 </tr>
 </table>
- 
 </body>
 </html>`;
 }
 
-// ─── /api/scrape-email ────────────────────────────────────────────────────────
+// ─── /api/rest/scrape-email ───────────────────────────────────────────────────
 
 businessRouterRest.post("/api/rest/scrape-email", adminMiddleware, async (req, res) => {
     const { url } = req.body;
@@ -198,38 +179,61 @@ businessRouterRest.post("/api/rest/scrape-email", adminMiddleware, async (req, r
     return res.json({ email });
 });
 
-// ─── /api/send-bulk-email — acepta multipart/form-data para adjuntos ──────────
+// ─── /api/rest/send-bulk-email ────────────────────────────────────────────────
 
-businessRouterRest.post("/api/rest/send-bulk-email", adminMiddleware, upload.array("attachments", 10), async (req, res) => {
-    const { email, subject, message } = req.body;
+businessRouterRest.post(
+    "/api/rest/send-bulk-email",
+    adminMiddleware,
+    upload.array("attachments", 10),
+    async (req, res) => {
+        const { email, subject, message } = req.body;
 
-    if (!email || !subject) {
-        return res.status(400).json({ message: "Faltan email y subject 🔴" });
+        console.log(`[send-bulk-email] TO=${email} | SUBJECT=${subject} | FILES=${req.files?.length ?? 0}`);
+
+        if (!email || !subject) {
+            return res.status(400).json({ message: "Faltan email y/o subject" });
+        }
+
+        let transporter;
+        try {
+            transporter = createTransporter();
+        } catch (err) {
+            console.error("[send-bulk-email] Transporter error:", err.message);
+            return res.status(500).json({ message: err.message });
+        }
+
+        // Verificar conexión antes de enviar
+        try {
+            await transporter.verify();
+            console.log("[mailer] SMTP verify: OK");
+        } catch (verifyErr) {
+            console.error("[mailer] SMTP verify FAILED:", verifyErr.message);
+            return res.status(500).json({
+                message: `Error de autenticación SMTP: ${verifyErr.message}`,
+            });
+        }
+
+        const attachments = (req.files ?? []).map(f => ({
+            filename:    f.originalname,
+            content:     f.buffer,
+            contentType: f.mimetype,
+        }));
+
+        try {
+            await transporter.sendMail({
+                from:    process.env.EMAIL_FROM,
+                to:      email,
+                subject,
+                html:    buildPresentationHtml(message || ""),
+                attachments,
+            });
+            console.log(`[send-bulk-email] OK → ${email}`);
+            res.json({ ok: true });
+        } catch (err) {
+            console.error(`[send-bulk-email] sendMail FAILED → ${email}:`, err.message);
+            res.status(500).json({ message: err.message });
+        }
     }
-
-    const transporter = createTransporter();
-    const files = req.files ?? [];
-
-    // Construir adjuntos para nodemailer
-    const attachments = files.map(f => ({
-        filename:    f.originalname,
-        content:     f.buffer,
-        contentType: f.mimetype,
-    }));
-
-    try {
-        await transporter.sendMail({
-            from:    process.env.EMAIL_FROM,
-            to:      email,
-            subject,
-            html:    buildPresentationHtml(message || ""),
-            attachments,
-        });
-        res.json({ ok: true });
-    } catch (error) {
-        console.error(`[send-bulk-email] Error → ${email}:`, error.message);
-        res.status(500).json({ message: "Error al enviar 🔴", error: error.message });
-    }
-});
+);
 
 module.exports = businessRouterRest;
