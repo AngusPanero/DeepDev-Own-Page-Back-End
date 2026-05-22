@@ -1,7 +1,6 @@
 const express         = require("express");
 const multer          = require("multer");
 const adminMiddleware = require("../middleware/adminMiddleware");
-const Brevo           = require("@getbrevo/brevo");
 
 const businessRouterRest = express.Router();
 
@@ -11,29 +10,27 @@ const upload = multer({
     limits: { fileSize: 5 * 1024 * 1024, files: 5 },
 });
 
-// ─── Brevo API client singleton ───────────────────────────────────────────────
-let _brevoApi = null;
+// ─── Brevo client singleton ───────────────────────────────────────────────────
+let _brevoClient = null;
 
-function getBrevoApi() {
-    if (_brevoApi) return _brevoApi;
+function getBrevoClient() {
+    if (_brevoClient) return _brevoClient;
 
     const apiKey = process.env.BREVO_API_KEY;
     console.log(`[brevo-rest] BREVO_API_KEY=${apiKey ? "✓ set (***)" : "✗ MISSING"}`);
     if (!apiKey) throw new Error("BREVO_API_KEY no está definida");
 
-    const client = Brevo.ApiClient.instance;
-    client.authentications["api-key"].apiKey = apiKey;
-    _brevoApi = new Brevo.TransactionalEmailsApi();
+    const { BrevoClient } = require("@getbrevo/brevo");
+    _brevoClient = new BrevoClient({ apiKey });
 
-    console.log("[brevo-rest] Cliente API creado (singleton)");
-    return _brevoApi;
+    console.log("[brevo-rest] Cliente creado (singleton)");
+    return _brevoClient;
 }
 
 // ─── Email helpers ────────────────────────────────────────────────────────────
 const EMAIL_REGEX_STR   = "[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}";
 const IGNORED_DOMAINS   = ["xxx.com"];
-const PERSONAL_DOMAINS  = ["gmail.com","hotmail.com","yahoo.com","outlook.com","live.com","icloud.com","protonmail.com","hotmail.com.ar"];
-const PRIORITY_PREFIXES = ["info@","contacto@","contact@","hola@","ventas@","admin@","consultas@","atencion@","reservas@"];
+const PRIORITY_PREFIXES = ["info@","contacto@","contact@","hola@","ventas@","admin@","consultas@","atencion@","reservas@", "gmail.com","hotmail.com","yahoo.com","outlook.com","live.com","icloud.com","protonmail.com","hotmail.com.ar"];
 
 function extractEmails(html) {
     const regex = new RegExp(EMAIL_REGEX_STR, "gi");
@@ -45,7 +42,6 @@ function isValidBusinessEmail(email) {
     const domain = lower.split("@")[1];
     if (!domain) return false;
     if (IGNORED_DOMAINS.includes(domain))  return false;
-    if (PERSONAL_DOMAINS.includes(domain)) return false;
     if (/\.(png|jpg|gif|svg|webp)/.test(lower)) return false;
     if (email.length < 6) return false;
     return true;
@@ -199,11 +195,11 @@ businessRouterRest.post(
         if (!email || !subject)
             return res.status(400).json({ message: "Faltan email y/o subject" });
 
-        let api;
+        let brevo;
         try {
-            api = getBrevoApi();
+            brevo = getBrevoClient();
         } catch (err) {
-            console.error("[send-bulk-rest] Brevo init error:", err.message);
+            console.error("[send-bulk-rest] Brevo error:", err.message);
             return res.status(500).json({ message: "Error interno del servidor" });
         }
 
@@ -213,7 +209,7 @@ businessRouterRest.post(
         }));
 
         try {
-            const result = await api.sendTransacEmail({
+            const result = await brevo.transactionalEmails.sendTransacEmail({
                 sender:      { email: "aguspanero@gmail.com", name: "Agustín Panero" },
                 to:          [{ email }],
                 subject,

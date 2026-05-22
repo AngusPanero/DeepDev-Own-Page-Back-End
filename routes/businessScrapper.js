@@ -1,7 +1,6 @@
 const express         = require("express");
 const multer          = require("multer");
 const adminMiddleware = require("../middleware/adminMiddleware");
-const Brevo           = require("@getbrevo/brevo");
 
 const businessRouter = express.Router();
 
@@ -11,22 +10,21 @@ const upload = multer({
     limits: { fileSize: 5 * 1024 * 1024, files: 5 },
 });
 
-// ─── Brevo API client singleton ───────────────────────────────────────────────
-let _brevoApi = null;
+// ─── Brevo client singleton ───────────────────────────────────────────────────
+let _brevoClient = null;
 
-function getBrevoApi() {
-    if (_brevoApi) return _brevoApi;
+function getBrevoClient() {
+    if (_brevoClient) return _brevoClient;
 
     const apiKey = process.env.BREVO_API_KEY;
     console.log(`[brevo] BREVO_API_KEY=${apiKey ? "✓ set (***)" : "✗ MISSING"}`);
     if (!apiKey) throw new Error("BREVO_API_KEY no está definida");
 
-    const client = Brevo.ApiClient.instance;
-    client.authentications["api-key"].apiKey = apiKey;
-    _brevoApi = new Brevo.TransactionalEmailsApi();
+    const { BrevoClient } = require("@getbrevo/brevo");
+    _brevoClient = new BrevoClient({ apiKey });
 
-    console.log("[brevo] Cliente API creado (singleton)");
-    return _brevoApi;
+    console.log("[brevo] Cliente creado (singleton)");
+    return _brevoClient;
 }
 
 // ─── Email helpers ────────────────────────────────────────────────────────────
@@ -200,11 +198,11 @@ businessRouter.post(
         if (!email || !subject)
             return res.status(400).json({ message: "Faltan email y/o subject" });
 
-        let api;
+        let brevo;
         try {
-            api = getBrevoApi();
+            brevo = getBrevoClient();
         } catch (err) {
-            console.error("[send-bulk-email] Brevo init error:", err.message);
+            console.error("[send-bulk-email] Brevo error:", err.message);
             return res.status(500).json({ message: "Error interno del servidor" });
         }
 
@@ -215,7 +213,7 @@ businessRouter.post(
         }));
 
         try {
-            const result = await api.sendTransacEmail({
+            const result = await brevo.transactionalEmails.sendTransacEmail({
                 sender:      { email: "aguspanero@gmail.com", name: "DeepDev Studio" },
                 to:          [{ email }],
                 subject,
