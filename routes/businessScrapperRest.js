@@ -5,21 +5,70 @@ const adminMiddleware = require("../middleware/adminMiddleware");
 
 const businessRouterRest = express.Router();
 
+// ─── Multer — límites conservadores ──────────────────────────────────────────
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 10 * 1024 * 1024, files: 10 },
+    limits: { fileSize: 5 * 1024 * 1024, files: 5 },
 });
+
+// ─── Transporter singleton ───────────────────────────────────────────────────
+let _transporter = null;
+
+function getTransporter() {
+    if (_transporter) return _transporter;
+
+    const user = process.env.TICKETS_EMAIL_FROM;
+    const pass = process.env.TICKETS_PASS_EMAIL;
+
+    console.log(`[mailer-rest] EMAIL_FROM=${user ? "✓ (" + user + ")" : "✗ MISSING"}`);
+    console.log(`[mailer-rest] PASS=${pass ? "✓ (***)" : "✗ MISSING"}`);
+
+    if (!user || !pass)
+        throw new Error("TICKETS_EMAIL_FROM o TICKETS_PASS_EMAIL no están definidas");
+
+    _transporter = nodemailer.createTransport({
+        host:           "smtp.gmail.com",
+        port:           587,
+        secure:         false,
+        auth:           { user, pass },
+        pool:           true,
+        maxConnections: 3,
+        maxMessages:    50,
+        tls:            { rejectUnauthorized: false },
+    });
+
+    console.log("[mailer-rest] Transporter creado (singleton)");
+    return _transporter;
+}
+
+(async () => {
+    try {
+        await getTransporter().verify();
+        console.log("[mailer-rest] SMTP verify: OK");
+    } catch (err) {
+        console.error("[mailer-rest] SMTP verify FAILED al arrancar:", err.message);
+        _transporter = null;
+    }
+})();
 
 // ─── Email helpers ────────────────────────────────────────────────────────────
 
-const EMAIL_REGEX       = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
+const EMAIL_REGEX_STR   = "[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}";
 const IGNORED_DOMAINS   = ["xxx.com"];
-const PRIORITY_PREFIXES = ["info@","contacto@","contact@","hola@","ventas@","admin@","consultas@","atencion@","reservas@","gmail.com","hotmail.com","yahoo.com","outlook.com","live.com","icloud.com","protonmail.com","hotmail.com.ar"];
+const PERSONAL_DOMAINS  = ["gmail.com","hotmail.com","yahoo.com","outlook.com","live.com","icloud.com","protonmail.com","hotmail.com.ar"];
+const PRIORITY_PREFIXES = ["info@","contacto@","contact@","hola@","ventas@","admin@","consultas@","atencion@","reservas@"];
+
+function extractEmails(html) {
+    const regex = new RegExp(EMAIL_REGEX_STR, "gi");
+    return [...new Set(html.match(regex) ?? [])];
+}
 
 function isValidBusinessEmail(email) {
-    const lower = email.toLowerCase(), domain = lower.split("@")[1];
+    const lower  = email.toLowerCase();
+    const domain = lower.split("@")[1];
     if (!domain) return false;
-    if (IGNORED_DOMAINS.includes(domain)) return false;
+    if (IGNORED_DOMAINS.includes(domain))  return false;
+    if (PERSONAL_DOMAINS.includes(domain)) return false;
     if (/\.(png|jpg|gif|svg|webp)/.test(lower)) return false;
     if (email.length < 6) return false;
     return true;
@@ -31,41 +80,20 @@ async function fetchEmailFromUrl(url) {
     try {
         const fetchFn  = typeof fetch !== "undefined" ? fetch : require("node-fetch");
         const response = await fetchFn(url, {
-            signal: controller.signal,
+            signal:  controller.signal,
             headers: { "User-Agent": "Mozilla/5.0 (compatible; ContactBot/1.0)", "Accept": "text/html" },
         });
         clearTimeout(timeout);
         if (!response.ok) return null;
         const html   = await response.text();
-        const emails = [...new Set(html.match(EMAIL_REGEX) ?? [])].filter(isValidBusinessEmail);
+        const emails = extractEmails(html).filter(isValidBusinessEmail);
         if (!emails.length) return null;
         return emails.find(e => PRIORITY_PREFIXES.some(p => e.toLowerCase().startsWith(p))) ?? emails[0];
     } catch (err) {
         clearTimeout(timeout);
+        console.warn(`[scrapeEmail-rest] ${err.name === "AbortError" ? "Timeout" : "Error"}: ${url}`);
         return null;
     }
-}
-
-// ─── Transporter — verifica config al arrancar ───────────────────────────────
-
-function createTransporter() {
-    const user = process.env.EMAIL_FROM;
-    const pass = process.env.PASS_EMAIL;
-
-    // Log en producción para confirmar que las vars existen
-    console.log(`[mailer] EMAIL_FROM=${user ? "✓ set" : "✗ MISSING"}`);
-    console.log(`[mailer] PASS_EMAIL=${pass ? "✓ set" : "✗ MISSING"}`);
-
-    if (!user || !pass) {
-        throw new Error("EMAIL_FROM o PASS_EMAIL no están definidas en las variables de entorno");
-    }
-
-    return nodemailer.createTransport({
-        service: "gmail",
-        auth: { user, pass },
-        // En producción algunos servidores necesitan esto explícito
-        tls: { rejectUnauthorized: false },
-    });
 }
 
 // ─── HTML ─────────────────────────────────────────────────────────────────────
@@ -171,10 +199,15 @@ function buildPresentationHtml(introText) {
 
 businessRouterRest.post("/api/rest/scrape-email", adminMiddleware, async (req, res) => {
     const { url } = req.body;
-    if (!url || typeof url !== "string") return res.status(400).json({ error: "Se requiere 'url'" });
+    if (!url || typeof url !== "string")
+        return res.status(400).json({ error: "Se requiere 'url'" });
     let parsed;
-    try { parsed = new URL(url); } catch { return res.status(400).json({ error: "URL inválida" }); }
-    if (!["http:","https:"].includes(parsed.protocol)) return res.status(400).json({ error: "Solo http o https" });
+    try { parsed = new URL(url); } catch {
+        return res.status(400).json({ error: "URL inválida" });
+    }
+    if (!["http:","https:"].includes(parsed.protocol))
+        return res.status(400).json({ error: "Solo http o https" });
+
     const email = await fetchEmailFromUrl(url);
     return res.json({ email });
 });
@@ -184,33 +217,21 @@ businessRouterRest.post("/api/rest/scrape-email", adminMiddleware, async (req, r
 businessRouterRest.post(
     "/api/rest/send-bulk-email",
     adminMiddleware,
-    upload.array("attachments", 10),
+    upload.array("attachments", 5),
     async (req, res) => {
         const { email, subject, message } = req.body;
 
-        console.log(`[send-bulk-email] TO=${email} | SUBJECT=${subject} | FILES=${req.files?.length ?? 0}`);
+        console.log(`[send-bulk-rest] TO=${email} | SUBJECT=${subject} | FILES=${req.files?.length ?? 0}`);
 
-        if (!email || !subject) {
+        if (!email || !subject)
             return res.status(400).json({ message: "Faltan email y/o subject" });
-        }
 
         let transporter;
         try {
-            transporter = createTransporter();
+            transporter = getTransporter();
         } catch (err) {
-            console.error("[send-bulk-email] Transporter error:", err.message);
-            return res.status(500).json({ message: err.message });
-        }
-
-        // Verificar conexión antes de enviar
-        try {
-            await transporter.verify();
-            console.log("[mailer] SMTP verify: OK");
-        } catch (verifyErr) {
-            console.error("[mailer] SMTP verify FAILED:", verifyErr.message);
-            return res.status(500).json({
-                message: `Error de autenticación SMTP: ${verifyErr.message}`,
-            });
+            console.error("[send-bulk-rest] Transporter error:", err.message);
+            return res.status(500).json({ message: "Error interno del servidor" });
         }
 
         const attachments = (req.files ?? []).map(f => ({
@@ -220,18 +241,19 @@ businessRouterRest.post(
         }));
 
         try {
-            await transporter.sendMail({
-                from:    process.env.EMAIL_FROM,
+            const info = await transporter.sendMail({
+                from:    process.env.TICKETS_EMAIL_FROM,
                 to:      email,
                 subject,
                 html:    buildPresentationHtml(message || ""),
                 attachments,
             });
-            console.log(`[send-bulk-email] OK → ${email}`);
+            console.log(`[send-bulk-rest] OK → ${email} | ${info.messageId}`);
             res.json({ ok: true });
         } catch (err) {
-            console.error(`[send-bulk-email] sendMail FAILED → ${email}:`, err.message);
-            res.status(500).json({ message: err.message });
+            console.error(`[send-bulk-rest] FAILED → ${email}:`, err.message);
+            _transporter = null; // forzar reconexión en próximo request
+            res.status(500).json({ message: "Error interno del servidor" });
         }
     }
 );
