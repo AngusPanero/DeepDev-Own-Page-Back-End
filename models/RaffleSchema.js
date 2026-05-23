@@ -1,39 +1,32 @@
-const mongoose = require("mongoose")
+const mongoose = require("mongoose");
 
-const RaffleSchema = new mongoose.Schema({
-    fullName: {
-        type: String,
-        required: true,
-        minlength: 3,      
-        maxlength: 30,
-        set: value => value.toUpperCase()
-    },
-    email: {
-        type: String,
-        minlength: 10,
-        maxlength: 60,
-        trim: true,
-        lowercase: true,
-        default: null,
-        required: true,
-        match: /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/,
-    },
-    phone: {
-        type: Number,
-        required: true
-    },
-    description: {
-        type: String,
-        required: true,
-        minlength: 3,      
-        maxlength: 500,
-    },
-    terminosCondiciones:{
-        type: String,
-        default: "Aceptados al inscribirse en el sorteo"
-    }
-}, { timestamps: true })
+// ─── Registro de participante ─────────────────────────────────
+const RaffleEntrySchema = new mongoose.Schema({
+    fullName:    { type: String, required: true, trim: true },
+    email:       { type: String, required: true, lowercase: true, trim: true },
+    phone:       { type: String, required: true, trim: true },
+    country:     { type: String, required: true, trim: true },
+    instagram:   { type: String, default: "", trim: true },
+    description: { type: String, required: true, trim: true },
+    raffleId:    { type: mongoose.Schema.Types.ObjectId, ref: "ActiveRaffle", required: true },
+    createdAt:   { type: Date, default: Date.now },
+    ip:          { type: String, default: "" },
+});
+// un email = un registro por sorteo
+RaffleEntrySchema.index({ email: 1, raffleId: 1 }, { unique: true });
 
-const Raffle = mongoose.model("raffle", RaffleSchema)
+// ─── Sorteo activo (creado desde el admin) ────────────────────
+const ActiveRaffleSchema = new mongoose.Schema({
+    title:       { type: String, required: true, trim: true },
+    description: { type: String, required: true, trim: true },
+    prize:       { type: String, required: true, trim: true },
+    drawDate:    { type: Date,   required: true },
+    isActive:    { type: Boolean, default: true },
+    createdAt:   { type: Date,  default: Date.now },
+    createdBy:   { type: String, default: "admin" },
+});
 
-module.exports = Raffle
+const RaffleEntry  = mongoose.model("RaffleEntry",  RaffleEntrySchema);
+const ActiveRaffle = mongoose.model("ActiveRaffle", ActiveRaffleSchema);
+
+module.exports = { RaffleEntry, ActiveRaffle };

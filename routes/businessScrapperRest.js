@@ -4,6 +4,8 @@ const adminMiddleware = require("../middleware/adminMiddleware");
 
 const businessRouterRest = express.Router();
 
+/* REGISTRARSE EN BREVO Y CREAR API KEY NO LA KEY SMTP*/
+
 // ─── Multer ───────────────────────────────────────────────────────────────────
 const upload = multer({
     storage: multer.memoryStorage(),

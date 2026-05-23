@@ -35,9 +35,9 @@ app.use(businessRouter)
 app.use(authRouter)
 app.use(contactRouter)
 app.use(mailRouter)
-app.use(mercadoPagoRouter)
+/* app.use(mercadoPagoRouter) */
 app.use(raffleRouter)
-app.use(paymentsRouter)
+/* app.use(paymentsRouter) */
 app.use(firebaseRouter)
 
 app.use((req,res) => {
